@@ -66,7 +66,7 @@ If you prefer not to use Docker Compose, you can use the following `docker run` 
 docker run -d \
   --name=taskbox \
   -p 6500:3000 \
-  -v $(pwd)/data:/app/data \
+  -v ./data:/app/data \
   -e NODE_ENV=production \
   -e PORT=3000 \
   --restart unless-stopped \

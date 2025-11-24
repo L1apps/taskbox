@@ -5,6 +5,7 @@ import TaskListTabs from './components/TaskListTabs';
 import TaskListView from './components/TaskListView';
 import AddListModal from './components/AddListModal';
 import AboutModal from './components/AboutModal';
+import StatsModal from './components/StatsModal';
 import type { Task, TaskList, Theme } from './types';
 import { exportTasksToCSV } from './utils/csvExporter';
 import { parseTasksFromFile } from './utils/csvImporter';
@@ -47,6 +48,7 @@ const App: React.FC = () => {
   const [activeListId, setActiveListId] = useState<number | null>(null);
   const [isAddListModalOpen, setIsAddListModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -303,6 +305,7 @@ const App: React.FC = () => {
         onImport={handleImport}
         onExport={handleExport}
         onShowAbout={() => setIsAboutModalOpen(true)}
+        onShowStats={() => setIsStatsModalOpen(true)}
       />
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className={`${
@@ -357,6 +360,13 @@ const App: React.FC = () => {
         <AboutModal
             onClose={() => setIsAboutModalOpen(false)}
             theme={theme}
+        />
+      )}
+      {isStatsModalOpen && (
+        <StatsModal
+          onClose={() => setIsStatsModalOpen(false)}
+          lists={lists}
+          theme={theme}
         />
       )}
     </div>

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Task, Theme } from '../types';
+import Tooltip from './Tooltip';
 
 interface TaskItemProps {
   task: Task;
   theme: Theme;
+  allTasksInList: Task[];
   onUpdate: (task: Task) => void;
   onRemove: (taskId: number) => void;
 }
@@ -26,9 +28,16 @@ const StarRating: React.FC<{ rating: number; onRate: (rating: number) => void; t
 };
 
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, theme, onUpdate, onRemove }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpdate, onRemove }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [description, setDescription] = useState(task.description);
+
+  const dependencyTask = useMemo(() => 
+    task.dependsOn ? allTasksInList.find(t => t.id === task.dependsOn) : null,
+    [task.dependsOn, allTasksInList]
+  );
+
+  const isDependencyIncomplete = dependencyTask ? !dependencyTask.completed : false;
 
   const handleUpdate = () => {
     if (description.trim()) {
@@ -42,6 +51,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, onUpdate, onRemove }) 
   };
 
   const handleToggleComplete = () => {
+    if(isDependencyIncomplete) return;
     onUpdate({ ...task, completed: !task.completed });
   };
   
@@ -52,21 +62,38 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, onUpdate, onRemove }) 
   const handleRatingChange = (newRating: number) => {
     onUpdate({ ...task, importance: newRating });
   };
+
+  const handleDependencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value ? Number(e.target.value) : null;
+    onUpdate({ ...task, dependsOn: selectedId });
+  };
   
   const isOrange = theme === 'orange';
   const checkboxColor = isOrange ? 'text-orange-600' : 'text-blue-600';
   const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const borderFocusColor = isOrange ? 'border-orange-500' : 'border-blue-500';
+  
+  const availableDependencies = allTasksInList.filter(t => t.id !== task.id);
 
+  const CheckboxWrapper = ({ children }: { children: React.ReactNode }) => {
+    if (isDependencyIncomplete && dependencyTask) {
+        return <Tooltip text={`Complete "${dependencyTask.description}" first`}>{children}</Tooltip>;
+    }
+    return <>{children}</>;
+  };
 
   return (
     <div className={`flex items-center p-3 rounded-lg transition-colors ${task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm')}`}>
-      <input
-        type="checkbox"
-        checked={task.completed}
-        onChange={handleToggleComplete}
-        className={`h-5 w-5 mr-4 rounded border-gray-300 ${checkboxColor} ${focusRingColor}`}
-      />
+      <CheckboxWrapper>
+        <input
+          type="checkbox"
+          checked={task.completed}
+          onChange={handleToggleComplete}
+          disabled={isDependencyIncomplete}
+          className={`h-5 w-5 mr-4 rounded border-gray-300 ${checkboxColor} ${focusRingColor} ${isDependencyIncomplete ? 'cursor-not-allowed opacity-50' : ''}`}
+          aria-label={isDependencyIncomplete ? `Cannot complete task, dependency '${dependencyTask?.description}' is incomplete` : 'Mark task as complete'}
+        />
+      </CheckboxWrapper>
       <div className="flex-grow">
         {isEditing ? (
           <input
@@ -93,13 +120,31 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, onUpdate, onRemove }) 
           </p>
         )}
       </div>
-      <div className="flex items-center space-x-2 md:space-x-4 ml-4">
+      <div className="flex items-center space-x-2 md:space-x-3 ml-3 shrink-0">
         <StarRating rating={task.importance} onRate={handleRatingChange} theme={theme} />
+        <div className="relative">
+            <select
+                value={task.dependsOn || ''}
+                onChange={handleDependencyChange}
+                className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-28 md:w-32 appearance-none pr-7 ${isOrange ? 'text-gray-900' : ''}`}
+                aria-label="Set task dependency"
+            >
+                <option value="">No Dependency</option>
+                {availableDependencies.map(depTask => (
+                    <option key={depTask.id} value={depTask.id} title={depTask.description}>
+                        {depTask.description.length > 25 ? depTask.description.substring(0, 25) + '...' : depTask.description}
+                    </option>
+                ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+            </div>
+        </div>
         <input
             type="date"
             value={task.dueDate || ''}
             onChange={handleDateChange}
-            className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-32 ${isOrange ? 'text-gray-900' : ''}`}
+            className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-28 md:w-32 ${isOrange ? 'text-gray-900' : ''}`}
         />
         <button
           onClick={() => onRemove(task.id)}

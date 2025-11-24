@@ -25,6 +25,7 @@ This guide will walk you through deploying the TaskBox application using Portain
 5.  **Paste the Docker Compose configuration:**
     Copy the entire content below and paste it into the **Web editor**.
 
+    ```yaml
     version: '3.8'
 
     services:
@@ -42,12 +43,14 @@ This guide will walk you through deploying the TaskBox application using Portain
 
     volumes:
       taskbox_data:
+    ```
     
     > **Note on Volumes:** The configuration above uses a Docker "named volume" (`taskbox_data`). This is often easier to manage within Portainer. Portainer will automatically create this volume for you. If you prefer to use a "bind mount" to a specific folder on your host machine, you can revert the `volumes` section to match the standard `docker-compose.yml` file:
     
+    ```yaml
     volumes:
       - /path/on/your/host/taskbox/data:/app/data
-    
+    ```
 
 6.  **Deploy the stack:**
     Scroll to the bottom of the page and click the **Deploy the stack** button.

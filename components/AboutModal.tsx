@@ -10,7 +10,7 @@ interface AboutModalProps {
 const AboutModal: React.FC<AboutModalProps> = ({ onClose, theme }) => {
   const isOrange = theme === 'orange';
   // In a real app, this might be dynamically injected at build time
-  const version = "1.0.0"; 
+  const version = "1.1.0"; 
 
   return (
     <Modal title="About TaskBox" onClose={onClose} theme={theme}>

@@ -41,6 +41,7 @@ async function initializeDatabase() {
           table.string('dueDate');
           table.integer('importance').defaultTo(0);
           table.integer('list_id').unsigned().references('id').inTable('lists').onDelete('CASCADE');
+          table.integer('dependsOn').unsigned().references('id').inTable('tasks').onDelete('SET NULL');
         });
 
         // Seed data
@@ -59,6 +60,16 @@ async function initializeDatabase() {
         ]);
       });
       console.log('Database initialized and seeded successfully.');
+    } else {
+      // Simple migration: check for and add the dependsOn column if it's missing
+      const hasDependsOnColumn = await db.schema.hasColumn('tasks', 'dependsOn');
+      if (!hasDependsOnColumn) {
+          console.log("Adding 'dependsOn' column to 'tasks' table for dependency tracking...");
+          await db.schema.alterTable('tasks', (table) => {
+              table.integer('dependsOn').unsigned().references('id').inTable('tasks').onDelete('SET NULL');
+          });
+          console.log("'dependsOn' column added successfully.");
+      }
     }
 
     // Add a verification step to ensure the DB is ready for queries

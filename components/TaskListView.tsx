@@ -103,7 +103,14 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
 
       <div className="space-y-3">
         {sortedAndFilteredTasks.map(task => (
-          <TaskItem key={task.id} task={task} onUpdate={onUpdateTask} onRemove={onRemoveTask} theme={theme} />
+          <TaskItem 
+            key={task.id} 
+            task={task} 
+            allTasksInList={tasks} 
+            onUpdate={onUpdateTask} 
+            onRemove={onRemoveTask} 
+            theme={theme} 
+          />
         ))}
       </div>
       

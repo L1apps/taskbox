@@ -81,6 +81,7 @@ export function createApiRouter(db) {
         completed: false,
         dueDate: null,
         importance: 1,
+        dependsOn: null,
         list_id: parseInt(listId, 10)
       };
       const [insertedId] = await db('tasks').insert(newTaskData);
@@ -107,6 +108,7 @@ export function createApiRouter(db) {
         completed: !!task.completed,
         dueDate: task.dueDate || null,
         importance: typeof task.importance === 'number' ? Math.max(0, Math.min(5, task.importance)) : 1,
+        dependsOn: null, // Dependencies are not supported via bulk import
         list_id: parseInt(listId, 10),
       }));
 
@@ -130,13 +132,52 @@ export function createApiRouter(db) {
   router.put('/tasks/:taskId', async (req, res) => {
     try {
       const { taskId } = req.params;
-      const { description, completed, dueDate, importance } = req.body;
+      const { description, completed, dueDate, importance, dependsOn } = req.body;
       
       if (description !== undefined && (typeof description !== 'string' || description.trim() === '')) {
         return res.status(400).json({ message: 'Description must be a non-empty string.' });
       }
 
-      const updatePayload = { description: description?.trim(), completed, dueDate, importance };
+      // --- Dependency Validation ---
+      if (dependsOn !== undefined) {
+          // A task cannot depend on itself
+          if (dependsOn !== null && Number(dependsOn) === Number(taskId)) {
+            return res.status(409).json({ message: "A task cannot depend on itself." });
+          }
+
+          // If setting a dependency, check that it's valid
+          if (dependsOn !== null) {
+              const [currentTask] = await db('tasks').where('id', taskId).select('list_id');
+              const [dependencyTask] = await db('tasks').where('id', dependsOn).select('list_id', 'dependsOn');
+
+              if (!dependencyTask) {
+                return res.status(404).json({ message: 'Dependency task not found.' });
+              }
+              if (currentTask.list_id !== dependencyTask.list_id) {
+                return res.status(409).json({ message: 'Tasks must be in the same list to set a dependency.' });
+              }
+              // Prevent simple circular dependencies (A->B, B->A)
+              if (dependencyTask.dependsOn === Number(taskId)) {
+                return res.status(409).json({ message: 'Circular dependency detected. Cannot set this dependency.' });
+              }
+          }
+      }
+
+      // Prevent completing a task if its dependency is incomplete
+      if (completed === true) {
+        const [taskToCheck] = await db('tasks').where('id', taskId).select('dependsOn');
+        // Use the new dependsOn from payload if provided, otherwise the one from DB
+        const dependencyId = dependsOn !== undefined ? dependsOn : taskToCheck.dependsOn; 
+        if (dependencyId) {
+            const [dependency] = await db('tasks').where('id', dependencyId).select('completed');
+            if (dependency && !dependency.completed) {
+                return res.status(409).json({ message: 'Cannot complete a task while its dependency is incomplete.' });
+            }
+        }
+      }
+      // --- End Validation ---
+
+      const updatePayload = { description: description?.trim(), completed, dueDate, importance, dependsOn };
       Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
 
       if (Object.keys(updatePayload).length === 0) {

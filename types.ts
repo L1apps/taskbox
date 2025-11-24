@@ -5,6 +5,7 @@ export interface Task {
   completed: boolean;
   dueDate: string | null;
   importance: number; // 0 to 5
+  dependsOn?: number | null;
 }
 
 export interface TaskList {

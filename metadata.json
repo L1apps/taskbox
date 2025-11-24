@@ -1,0 +1,5 @@
+{
+  "name": "TaskBox",
+  "description": "A standalone, feature-rich task management application to organize your to-do lists efficiently. Manage multiple lists, track progress, and customize your experience with themes.",
+  "requestFramePermissions": []
+}

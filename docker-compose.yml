@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  taskbox:
+    image: l1apps/taskbox:latest
+    container_name: taskbox
+    ports:
+      - "6500:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

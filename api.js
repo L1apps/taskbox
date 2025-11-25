@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-that-should-be-in-an-env-file';
+const SESSION_TIMEOUT = process.env.SESSION_TIMEOUT || '7d';
 const SALT_ROUNDS = 10;
 
 // --- Utility Functions ---
@@ -79,7 +80,7 @@ export function createApiRouter(db) {
 
       logActivity(db, 'INFO', `Initial admin user '${username}' created.`);
 
-      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: SESSION_TIMEOUT });
       res.status(201).json({ token, user: { id: userId, username, role } });
   });
 
@@ -87,7 +88,7 @@ export function createApiRouter(db) {
       const { username, password } = req.body;
       const [user] = await db('users').where('username', username);
       if (user && await bcrypt.compare(password, user.password_hash)) {
-          const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+          const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: SESSION_TIMEOUT });
           logActivity(db, 'INFO', `User '${username}' logged in successfully.`);
           res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
       } else {
@@ -99,6 +100,36 @@ export function createApiRouter(db) {
   // --- Protected Routes ---
   router.get('/users/me', authenticate, (req, res) => {
       res.json(req.user);
+  });
+  
+  // Update User Credentials (Self)
+  router.put('/users/me', authenticate, async (req, res) => {
+      const { username, password, currentPassword } = req.body;
+      
+      // Verify current password
+      const [currentUser] = await db('users').where('id', req.user.id);
+      if (!await bcrypt.compare(currentPassword, currentUser.password_hash)) {
+          return res.status(401).json({ message: 'Current password incorrect.' });
+      }
+
+      const updateData = {};
+      if (username && username !== currentUser.username) {
+          const [existing] = await db('users').where({ username });
+          if (existing) return res.status(409).json({ message: 'Username already taken.' });
+          updateData.username = username;
+      }
+      if (password) {
+          if (password.length < 6) return res.status(400).json({ message: 'New password must be at least 6 characters.' });
+          updateData.password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+      }
+
+      if (Object.keys(updateData).length > 0) {
+          await db('users').where('id', req.user.id).update(updateData);
+          logActivity(db, 'INFO', `User '${currentUser.username}' updated their profile.`);
+      }
+      
+      const [updatedUser] = await db('users').where('id', req.user.id).select('id', 'username', 'role');
+      res.json(updatedUser);
   });
   
   router.get('/users', authenticate, async (req, res) => {
@@ -133,6 +164,25 @@ export function createApiRouter(db) {
       await db('users').where({ id }).del();
       logActivity(db, 'WARN', `Admin '${req.user.username}' deleted user '${userToDelete.username}'.`);
       res.status(204).send();
+  });
+
+  // Reset User Password (Admin)
+  router.put('/admin/users/:id/password', authenticate, adminOnly, async (req, res) => {
+      const { id } = req.params;
+      const { newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 6) {
+          return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+      }
+
+      const [userToUpdate] = await db('users').where({ id });
+      if (!userToUpdate) return res.status(404).json({ message: 'User not found.' });
+
+      const password_hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      await db('users').where({ id }).update({ password_hash });
+
+      logActivity(db, 'WARN', `Admin '${req.user.username}' reset password for user '${userToUpdate.username}'.`);
+      res.status(200).json({ message: 'Password updated successfully.' });
   });
   
   router.get('/admin/logs', authenticate, adminOnly, async (req, res) => {
@@ -226,7 +276,14 @@ export function createApiRouter(db) {
       if (!description || description.length > 500) {
           return res.status(400).json({ message: "Description is required and must be under 500 characters." });
       }
-      const newTaskData = { description, list_id: req.params.listId, importance: 0, pinned: false, completed: false };
+      const newTaskData = { 
+          description, 
+          list_id: req.params.listId, 
+          importance: 0, 
+          pinned: false, 
+          completed: false,
+          created_at: new Date() // Explicitly set created_at from Node if desired, or let DB default
+      };
       const [insertedId] = await db('tasks').insert(newTaskData);
       const [newTask] = await db('tasks').where('id', insertedId);
       res.status(201).json(newTask);
@@ -245,7 +302,8 @@ export function createApiRouter(db) {
           dueDate: t.dueDate || null,
           importance: t.importance || 0,
           list_id: req.params.listId,
-          pinned: false
+          pinned: false,
+          created_at: new Date()
       }));
 
       try {

@@ -1,3 +1,4 @@
+
 version: '3.8'
 
 services:
@@ -14,3 +15,5 @@ services:
       - PORT=3000
       # It is strongly recommended to change this to a long, random string for security
       - JWT_SECRET=your-super-secret-key-that-should-be-in-an-env-file
+      # Optional: Set session timeout (default 7d). Examples: 1h, 30m, 2d
+      - SESSION_TIMEOUT=7d

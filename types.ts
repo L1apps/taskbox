@@ -10,6 +10,7 @@ export interface Task {
   description: string;
   completed: boolean;
   dueDate: string | null;
+  createdAt: string; // ISO Date string
   importance: number; // 0: Low, 1: Medium, 2: High
   dependsOn?: number | null;
   pinned: boolean;
@@ -35,6 +36,8 @@ export enum SortOption {
     DESCRIPTION_DESC = 'description_desc',
     DUE_DATE_ASC = 'due_date_asc',
     DUE_DATE_DESC = 'due_date_desc',
+    CREATED_DATE_ASC = 'created_date_asc',
+    CREATED_DATE_DESC = 'created_date_desc',
     COMPLETED = 'completed',
     IMPORTANCE = 'importance',
 }

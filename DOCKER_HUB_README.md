@@ -1,3 +1,4 @@
+
 # TaskBox by Level 1 Apps
 
 **TaskBox** is a standalone, feature-rich task management application for individuals and teams. It now includes multi-user support, list sharing, and enhanced task organization features, all packaged in a secure, self-hosted Docker container.
@@ -15,6 +16,7 @@ TaskBox is a powerful and intuitive to-do list application that you can host on 
 ### Features:
 
 *   **Multi-User Support & Sharing:** Secure user registration and login, with the ability to share lists with other users.
+*   **User Account Settings:** Users can manage their own credentials.
 *   **Import Tasks:** Easily import tasks from CSV or TXT files.
 *   **Pinned Tasks:** Pin your most important tasks to the top of a list.
 *   **3-Level Importance:** Assign a Low, Medium, or High importance level to tasks using colored flags.
@@ -22,7 +24,9 @@ TaskBox is a powerful and intuitive to-do list application that you can host on 
 *   **Task Dependencies:** Set prerequisites for tasks within the same list.
 *   **Filtering & Sorting:** Quickly find tasks with powerful search and sort options.
 *   **Task Statistics:** Get a high-level overview of your productivity with detailed stats.
-*   **UI/UX Improvements:** New folder-style tabs, high-contrast Orange theme, and clear icons (v2.3.0).
+*   **Admin Panel:** Create/Delete users and reset passwords.
+*   **Emergency Recovery:** Includes a CLI script to reset the admin password if lost.
+*   **UI/UX Improvements:** New folder-style tabs, high-contrast Orange theme, and clear icons.
 *   **Custom Themes:** Switch between Light, Dark, and Orange/Black themes.
 
 ---
@@ -52,6 +56,8 @@ This is the easiest way to get TaskBox running.
           - PORT=3000
           # It is strongly recommended to change this to a long, random string for security
           - JWT_SECRET=your-super-secret-key-that-should-be-in-an-env-file
+          # Optional: Set session timeout (default 7d). Examples: 1h, 30m, 2d
+          - SESSION_TIMEOUT=7d
     ```
 
 2.  Run the application:
@@ -76,6 +82,7 @@ docker run -d \
   -e NODE_ENV=production \
   -e PORT=3000 \
   -e JWT_SECRET=your-super-secret-key-that-should-be-in-an-env-file \
+  -e SESSION_TIMEOUT=7d \
   --restart unless-stopped \
   l1apps/taskbox:latest
 ```

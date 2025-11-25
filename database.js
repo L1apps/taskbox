@@ -1,3 +1,4 @@
+
 import knex from 'knex';
 import fs from 'fs';
 import path from 'path';
@@ -87,6 +88,7 @@ async function initializeDatabase() {
           table.text('description').notNullable();
           table.boolean('completed').defaultTo(false);
           table.string('dueDate');
+          table.timestamp('created_at').defaultTo(db.fn.now());
           table.integer('importance').defaultTo(0); // 0:Low, 1:Medium, 2:High
           table.integer('list_id').unsigned().references('id').inTable('lists').onDelete('CASCADE');
           table.integer('dependsOn').unsigned().references('id').inTable('tasks').onDelete('SET NULL');
@@ -102,6 +104,12 @@ async function initializeDatabase() {
         if (!hasPinned) {
             await db.schema.alterTable('tasks', t => t.boolean('pinned').defaultTo(false));
         }
+        const hasCreatedAt = await db.schema.hasColumn('tasks', 'created_at');
+        if (!hasCreatedAt) {
+            console.log("Migrating 'tasks' table to add 'created_at'...");
+            await db.schema.alterTable('tasks', t => t.timestamp('created_at').defaultTo(db.fn.now()));
+        }
+
         // Normalize importance levels
         const needsNormalization = await db('tasks').where('importance', '>', 2).first();
         if (needsNormalization) {

@@ -1,3 +1,4 @@
+
 import type { Task } from '../types';
 
 export const exportTasksToCSV = (tasks: Task[], filename: string) => {
@@ -6,7 +7,7 @@ export const exportTasksToCSV = (tasks: Task[], filename: string) => {
     return;
   }
 
-  const headers = ['ID', 'Description', 'Completed', 'Due Date', 'Importance'];
+  const headers = ['ID', 'Description', 'Completed', 'Date Created', 'Due Date', 'Importance'];
   const csvRows = [headers.join(',')];
 
   tasks.forEach(task => {
@@ -14,6 +15,7 @@ export const exportTasksToCSV = (tasks: Task[], filename: string) => {
       task.id,
       `"${task.description.replace(/"/g, '""')}"`, // Escape double quotes
       task.completed,
+      task.createdAt || '',
       task.dueDate || '',
       task.importance
     ];

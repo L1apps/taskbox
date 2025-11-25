@@ -94,10 +94,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
   const checkboxColor = isOrange ? 'text-orange-600' : 'text-blue-600';
   const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const borderFocusColor = isOrange ? 'border-orange-500' : 'border-blue-500';
-  // Enforce black text in inputs for Orange theme
   const inputTextColor = isOrange ? 'text-gray-900' : '';
+  const readOnlyTextColor = isOrange ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400';
   
-  const availableDependencies = allTasksInList.filter(t => t.id !== task.id && !t.pinned); // Cannot depend on a pinned task
+  const availableDependencies = allTasksInList.filter(t => t.id !== task.id && !t.pinned);
 
   const CheckboxWrapper = ({ children }: { children: React.ReactNode }) => {
     if (isDependencyIncomplete && dependencyTask) {
@@ -106,28 +106,33 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
     return <>{children}</>;
   };
 
+  // Format Created At date for display
+  const createdDate = task.createdAt ? new Date(task.createdAt).toLocaleDateString() : '-';
+
   return (
-    <div className={`flex items-center p-3 rounded-lg transition-colors ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))}`}>
-      {/* Complete Checkbox */}
-      <CheckboxWrapper>
-        <input
-          type="checkbox"
-          checked={task.completed}
-          onChange={handleToggleComplete}
-          disabled={isDependencyIncomplete}
-          className={`h-5 w-5 rounded border-gray-300 ${checkboxColor} ${focusRingColor} ${isDependencyIncomplete ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-          aria-label={isDependencyIncomplete ? `Cannot complete task, dependency '${dependencyTask?.description}' is incomplete` : 'Mark task as complete'}
-        />
-      </CheckboxWrapper>
+    <div className={`flex flex-col md:flex-row md:items-center p-3 rounded-lg transition-colors gap-2 md:gap-0 ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))}`}>
       
-      {/* Pin & Importance */}
-      <div className="flex items-center space-x-3 mx-3">
-          <PinButton pinned={task.pinned} onClick={handleTogglePinned} />
-          <ImportanceFlag level={task.importance} onClick={handleToggleImportance} />
+      {/* Left Group: Checkbox, Pin, Importance */}
+      <div className="flex items-center">
+        <CheckboxWrapper>
+            <input
+            type="checkbox"
+            checked={task.completed}
+            onChange={handleToggleComplete}
+            disabled={isDependencyIncomplete}
+            className={`h-5 w-5 rounded border-gray-300 ${checkboxColor} ${focusRingColor} ${isDependencyIncomplete ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} mr-3`}
+            aria-label={isDependencyIncomplete ? `Cannot complete task, dependency '${dependencyTask?.description}' is incomplete` : 'Mark task as complete'}
+            />
+        </CheckboxWrapper>
+        
+        <div className="flex items-center space-x-3 mr-3">
+            <PinButton pinned={task.pinned} onClick={handleTogglePinned} />
+            <ImportanceFlag level={task.importance} onClick={handleToggleImportance} />
+        </div>
       </div>
 
       {/* Description */}
-      <div className="flex-grow">
+      <div className="flex-grow min-w-0">
         {isEditing ? (
           <input
             type="text"
@@ -139,14 +144,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             autoFocus
           />
         ) : (
-          <p onClick={() => setIsEditing(true)} className={`cursor-pointer ${task.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
+          <p onClick={() => setIsEditing(true)} className={`cursor-pointer truncate ${task.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
             {task.description}
           </p>
         )}
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center space-x-2 md:space-x-3 ml-3 shrink-0">
+      {/* Controls Group */}
+      <div className="flex items-center justify-end space-x-2 shrink-0 md:ml-4 mt-2 md:mt-0">
         <div className="relative">
             <select
                 value={task.dependsOn || ''}
@@ -165,15 +170,23 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
             </div>
         </div>
+        
+        {/* Date Created (Read Only) */}
+        <div className={`text-xs w-24 text-center border border-transparent ${readOnlyTextColor}`} title={`Created: ${task.createdAt ? new Date(task.createdAt).toLocaleString() : 'N/A'}`}>
+            {createdDate}
+        </div>
+
+        {/* Due Date */}
         <input
             type="date"
             value={task.dueDate || ''}
             onChange={handleDateChange}
-            className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-28 md:w-32 ${inputTextColor}`}
+            className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-32 ${inputTextColor}`}
         />
+        
         <button
           onClick={() => onRemove(task.id)}
-          className="text-gray-400 hover:text-red-500 transition-colors"
+          className="text-gray-400 hover:text-red-500 transition-colors ml-1"
           aria-label="Delete task"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

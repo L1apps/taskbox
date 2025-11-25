@@ -3,6 +3,28 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [2.5.0] - 2025-05-28
+### Added
+- **User Account Settings:** Users can now change their own username and password via a new settings gear icon.
+- **Date Created:** Tasks now automatically track their creation date.
+- **Sorting:** Added "Sort by Date Created" options.
+- **Configurable Session:** The session timeout (logout time) is now adjustable via the `SESSION_TIMEOUT` environment variable.
+- **UI:** Added a descriptive header row above the task list for better column identification.
+
+### Changed
+- **Layout:** Moved List Tabs to a vertical sidebar on the right side of the screen.
+- **UI:** Replaced the "X" delete button on list tabs with a Trash Can icon.
+- **UI:** Task items now display the "Created" date next to the "Due Date".
+
+## [2.4.0] - 2025-05-25
+### Added
+- **Admin Password Reset:** Admins can now reset passwords for other users directly from the Admin Panel.
+- **Emergency Recovery:** Added a CLI script (`reset_admin.js`) to reset the admin password via Docker if lost.
+
+### Fixed
+- **UI:** Fixed text visibility issues in the Statistics modal when using the Orange theme (text was too dark on dark backgrounds).
+- **UI:** Resolved tooltip clipping on list tabs by switching from a scrolling layout to a wrapping layout.
+
 ## [2.3.2] - 2025-05-22
 ### Fixed
 - **UI:** Fixed an issue where tooltips on list tabs were appearing underneath the main content area by adjusting Z-index layers.

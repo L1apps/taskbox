@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Task, TaskListWithUsers, Theme } from '../types';
 import { SortOption } from '../types';
@@ -43,6 +44,12 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
       case SortOption.DUE_DATE_DESC:
         unpinnedTasks.sort((a, b) => (b.dueDate || 'a').localeCompare(a.dueDate || 'a'));
         break;
+      case SortOption.CREATED_DATE_ASC:
+        unpinnedTasks.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+        break;
+      case SortOption.CREATED_DATE_DESC:
+        unpinnedTasks.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        break;
       case SortOption.COMPLETED:
         unpinnedTasks.sort((a, b) => Number(a.completed) - Number(b.completed));
           break;
@@ -69,12 +76,13 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
   const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const checkboxColor = isOrange ? 'text-orange-600' : 'text-blue-600';
   const buttonColor = isOrange ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700';
+  const headerTextColor = isOrange ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400';
   
   // Ensure text is black in inputs for orange theme
   const inputTextColor = isOrange ? 'text-gray-900' : '';
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 flex flex-col h-full">
       <div className="flex flex-col sm:flex-row gap-4 mb-4 items-center flex-wrap">
         <input
           type="text"
@@ -90,10 +98,12 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
         >
           <option value={SortOption.DEFAULT}>Sort by (Default)</option>
           <option value={SortOption.IMPORTANCE}>Importance</option>
-          <option value={SortOption.DESCRIPTION_ASC}>Description (A-Z)</option>
-          <option value={SortOption.DESCRIPTION_DESC}>Description (Z-A)</option>
+          <option value={SortOption.CREATED_DATE_ASC}>Created (Oldest)</option>
+          <option value={SortOption.CREATED_DATE_DESC}>Created (Newest)</option>
           <option value={SortOption.DUE_DATE_ASC}>Due Date (Oldest)</option>
           <option value={SortOption.DUE_DATE_DESC}>Due Date (Newest)</option>
+          <option value={SortOption.DESCRIPTION_ASC}>Description (A-Z)</option>
+          <option value={SortOption.DESCRIPTION_DESC}>Description (Z-A)</option>
           <option value={SortOption.COMPLETED}>Completed</option>
         </select>
         <label className="flex items-center space-x-2 cursor-pointer">
@@ -118,7 +128,18 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
         </div>
       </div>
 
-      <div className="space-y-3">
+      {/* Header Row */}
+      <div className={`hidden md:flex items-center px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 mb-2 ${headerTextColor}`}>
+         <div className="w-8 text-center mr-3">Status</div>
+         <div className="w-16 text-center mx-3">Priority</div>
+         <div className="flex-grow">Task Description</div>
+         <div className="w-32">Dependency</div>
+         <div className="w-24 ml-2">Created</div>
+         <div className="w-32 ml-2">Due Date</div>
+         <div className="w-8 ml-3"></div>
+      </div>
+
+      <div className="space-y-3 flex-grow overflow-y-auto no-scrollbar pb-4">
         {sortedAndFilteredTasks.map(task => (
           <TaskItem 
             key={task.id} 
@@ -129,23 +150,22 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
             theme={theme} 
           />
         ))}
+        {sortedAndFilteredTasks.length === 0 && (
+            <div className="text-center py-8 text-gray-500">No tasks match your criteria.</div>
+        )}
       </div>
-      
-      {sortedAndFilteredTasks.length === 0 && (
-          <div className="text-center py-8 text-gray-500">No tasks match your criteria.</div>
-      )}
 
-      <div className="mt-6">
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
         <AddTaskForm onAddTask={onAddTask} theme={theme} />
-      </div>
-
-      <div className="mt-8">
-        <div className="flex justify-between mb-1">
-          <span className={`text-base font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>Completion</span>
-          <span className={`text-sm font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>{completionPercentage}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-          <div className={`${progressColor} h-2.5 rounded-full`} style={{ width: `${completionPercentage}%` }}></div>
+        
+        <div className="mt-4">
+            <div className="flex justify-between mb-1">
+            <span className={`text-base font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>Completion</span>
+            <span className={`text-sm font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>{completionPercentage}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div className={`${progressColor} h-2.5 rounded-full`} style={{ width: `${completionPercentage}%` }}></div>
+            </div>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import { Theme, User, LogEntry } from '../types';
@@ -13,6 +14,11 @@ const UserManagementTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    
+    // Password reset state
+    const [resettingUserId, setResettingUserId] = useState<number | null>(null);
+    const [newPassword, setNewPassword] = useState('');
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -31,6 +37,7 @@ const UserManagementTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         try {
             const res = await apiFetch('/api/admin/users', {
                 method: 'POST',
@@ -40,6 +47,7 @@ const UserManagementTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme
             if (!res.ok) throw new Error(data.message || 'Failed to create user');
             setUsername('');
             setPassword('');
+            setSuccess(`User ${username} created.`);
             fetchUsers();
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -63,11 +71,33 @@ const UserManagementTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme
         }
     };
 
+    const handleResetPassword = async (userId: number) => {
+        if (!newPassword || newPassword.length < 6) {
+            setError('New password must be at least 6 characters.');
+            return;
+        }
+        try {
+            const res = await apiFetch(`/api/admin/users/${userId}/password`, {
+                method: 'PUT',
+                body: JSON.stringify({ newPassword })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Failed to reset password');
+            }
+            setSuccess('Password updated successfully.');
+            setResettingUserId(null);
+            setNewPassword('');
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Error resetting password';
+            setError(msg);
+        }
+    };
+
     const isOrange = theme === 'orange';
     const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
     const buttonColor = isOrange ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-500 hover:bg-blue-600';
     const inputTextColor = isOrange ? 'text-gray-900' : '';
-    // Use high contrast background for lists in Orange theme
     const listBgColor = isOrange ? 'bg-gray-200' : 'bg-gray-100 dark:bg-gray-700';
     const listTextColor = isOrange ? 'text-gray-900' : '';
 
@@ -81,18 +111,40 @@ const UserManagementTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme
                 </div>
                 <button type="submit" className={`w-full px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm ${buttonColor}`}>Create User</button>
                  {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+                 {success && <p className="text-sm text-green-500 mt-2">{success}</p>}
             </form>
             <div>
                 <h4 className="font-semibold mb-2">Existing Users</h4>
                 <ul className="space-y-2 max-h-60 overflow-y-auto">
                     {users.map(user => (
-                        <li key={user.id} className={`flex justify-between items-center p-2 rounded-md ${listBgColor} ${listTextColor}`}>
-                            <span>{user.username} {user.role === 'ADMIN' && <span className="text-xs font-bold text-green-500 ml-2">ADMIN</span>}</span>
-                            {user.role !== 'ADMIN' && (
-                                <button onClick={() => handleDeleteUser(user.id)} className="text-xs text-red-500 hover:underline">
-                                    Delete
-                                </button>
-                            )}
+                        <li key={user.id} className={`flex flex-col sm:flex-row justify-between items-center p-2 rounded-md ${listBgColor} ${listTextColor}`}>
+                            <span className="font-medium mb-2 sm:mb-0">{user.username} {user.role === 'ADMIN' && <span className="text-xs font-bold text-green-500 ml-2">ADMIN</span>}</span>
+                            
+                            <div className="flex space-x-2">
+                                {resettingUserId === user.id ? (
+                                    <div className="flex items-center space-x-2">
+                                        <input 
+                                            type="password" 
+                                            placeholder="New Pass" 
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                            className={`w-32 px-2 py-1 text-sm border rounded ${inputTextColor}`}
+                                        />
+                                        <button onClick={() => handleResetPassword(user.id)} className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600">Save</button>
+                                        <button onClick={() => { setResettingUserId(null); setNewPassword(''); }} className="text-xs bg-gray-400 text-white px-2 py-1 rounded hover:bg-gray-500">Cancel</button>
+                                    </div>
+                                ) : (
+                                    <button onClick={() => setResettingUserId(user.id)} className="text-xs text-blue-500 hover:underline">
+                                        Reset Pass
+                                    </button>
+                                )}
+                                
+                                {user.role !== 'ADMIN' && (
+                                    <button onClick={() => handleDeleteUser(user.id)} className="text-xs text-red-500 hover:underline ml-2">
+                                        Delete
+                                    </button>
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>

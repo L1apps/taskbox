@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -10,6 +11,7 @@ import ShareListModal from './components/ShareListModal';
 import LoginPage from './components/LoginPage';
 import SetupPage from './components/SetupPage';
 import AdminModal from './components/AdminModal';
+import UserSettingsModal from './components/UserSettingsModal';
 import type { Task, TaskList, Theme, User, TaskListWithUsers } from './types';
 import { exportTasksToCSV } from './utils/csvExporter';
 import { parseTasksFromFile } from './utils/csvImporter';
@@ -55,6 +57,7 @@ const App: React.FC = () => {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isUserSettingsModalOpen, setIsUserSettingsModalOpen] = useState(false);
   const [listToShare, setListToShare] = useState<TaskListWithUsers | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -153,6 +156,10 @@ const App: React.FC = () => {
     setToken(newToken);
     setUser(newUser);
     setNeedsSetup(false);
+  };
+  
+  const handleUserUpdated = (updatedUser: User) => {
+      setUser(updatedUser);
   };
 
   const activeList = useMemo(() => lists.find(list => list.id === activeListId), [lists, activeListId]);
@@ -271,10 +278,7 @@ const App: React.FC = () => {
             const response = await apiFetch(`/api/lists/${listId}/tasks/completed`, { method: 'DELETE' });
             if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
             
-            // We must refetch the list from the server here.
-            // A simple filter locally is insufficient because the database automatically
-            // sets `dependsOn` to NULL for any tasks that depended on the deleted ones.
-            // We need those updated dependency states.
+            // We must refetch the list from the server here to update dependencies.
             fetchLists();
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -377,50 +381,61 @@ const App: React.FC = () => {
         onShowAbout={() => setIsAboutModalOpen(true)}
         onShowStats={() => setIsStatsModalOpen(true)}
         onShowAdminPanel={() => setIsAdminModalOpen(true)}
+        onShowUserSettings={() => setIsUserSettingsModalOpen(true)}
         user={user}
         onLogout={handleLogout}
       />
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className={`${
             theme === 'orange' ? 'bg-black' : 'bg-white dark:bg-gray-800'
-        } rounded-lg shadow-lg overflow-hidden`}>
+        } rounded-lg shadow-lg overflow-hidden flex flex-col md:flex-row h-[calc(100vh-160px)]`}>
+          
           {loading ? (
-            <div className="p-16 text-center">Loading lists...</div>
+            <div className="p-16 text-center w-full">Loading lists...</div>
           ) : error ? (
-            <div className="p-8 text-center text-red-500 bg-red-50 dark:bg-red-900/20 rounded-t-lg">
-                <h2 className="text-xl font-semibold mb-2">An Error Occurred</h2>
-                <p>{error}</p>
-                <button onClick={() => setError(null)} className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-800 dark:text-red-100 rounded">Dismiss</button>
+            <div className="p-8 text-center w-full">
+                <div className="text-red-500 bg-red-50 dark:bg-red-900/20 rounded p-4 mb-4">
+                    <h2 className="text-xl font-semibold mb-2">An Error Occurred</h2>
+                    <p>{error}</p>
+                </div>
+                <button onClick={() => setError(null)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded">Dismiss</button>
             </div>
           ) : null}
           
           { !loading && !error && (
             <>
-              <TaskListTabs
-                lists={lists}
-                activeListId={activeListId}
-                currentUser={user}
-                onSelectList={setActiveListId}
-                onRemoveList={removeList}
-                onShareList={setListToShare}
-                theme={theme}
-              />
-              {activeList ? (
-                <TaskListView
-                  key={activeList.id}
-                  list={activeList}
-                  theme={theme}
-                  onUpdateTask={(task) => updateTask(activeList.id, task)}
-                  onPurgeCompleted={() => purgeCompletedTasks(activeList.id)}
-                  onAddTask={(desc) => addTask(activeList.id, desc)}
-                  onRemoveTask={(taskId) => removeTask(activeList.id, taskId)}
-                />
-              ) : (
-                <div className="p-16 text-center text-gray-500">
-                  <h2 className="text-2xl font-semibold mb-2">No lists available.</h2>
-                  <p>Create a new list to get started!</p>
-                </div>
-              )}
+              {/* Main Task View - Takes available space on Left */}
+              <div className="flex-grow order-2 md:order-1 overflow-hidden h-full">
+                  {activeList ? (
+                    <TaskListView
+                      key={activeList.id}
+                      list={activeList}
+                      theme={theme}
+                      onUpdateTask={(task) => updateTask(activeList.id, task)}
+                      onPurgeCompleted={() => purgeCompletedTasks(activeList.id)}
+                      onAddTask={(desc) => addTask(activeList.id, desc)}
+                      onRemoveTask={(taskId) => removeTask(activeList.id, taskId)}
+                    />
+                  ) : (
+                    <div className="p-16 text-center text-gray-500 h-full flex flex-col justify-center">
+                      <h2 className="text-2xl font-semibold mb-2">No lists available.</h2>
+                      <p>Create a new list to get started!</p>
+                    </div>
+                  )}
+              </div>
+              
+              {/* Tabs Sidebar - Fixed width on Right */}
+              <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-gray-200 dark:border-gray-700 order-1 md:order-2 shrink-0 bg-gray-50 dark:bg-gray-900/50">
+                  <TaskListTabs
+                    lists={lists}
+                    activeListId={activeListId}
+                    currentUser={user}
+                    onSelectList={setActiveListId}
+                    onRemoveList={removeList}
+                    onShareList={setListToShare}
+                    theme={theme}
+                  />
+              </div>
             </>
           )}
         </div>
@@ -430,6 +445,7 @@ const App: React.FC = () => {
       {isAboutModalOpen && <AboutModal onClose={() => setIsAboutModalOpen(false)} theme={theme} />}
       {isStatsModalOpen && <StatsModal onClose={() => setIsStatsModalOpen(false)} lists={lists} theme={theme} />}
       {isAdminModalOpen && user?.role === 'ADMIN' && <AdminModal onClose={() => setIsAdminModalOpen(false)} theme={theme} apiFetch={apiFetch} />}
+      {isUserSettingsModalOpen && user && <UserSettingsModal onClose={() => setIsUserSettingsModalOpen(false)} user={user} theme={theme} apiFetch={apiFetch} onUserUpdated={handleUserUpdated} />}
       {listToShare && <ShareListModal list={listToShare} onClose={() => setListToShare(null)} theme={theme} apiFetch={apiFetch} onListUpdated={fetchLists} />}
     </div>
   );

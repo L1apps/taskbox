@@ -1,13 +1,12 @@
+
 # Stage 1: Build the React frontend
 # This stage installs all dependencies (including devDependencies) and builds the static frontend assets.
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package.json AND package-lock.json. Using the lock file ensures that
-# the exact same dependency versions are installed every time, making builds reproducible.
-COPY package.json ./
-# In a real project, a package-lock.json would exist. If so, copy it.
-# COPY package-lock.json ./
+# Copy package.json AND package-lock.json (if available).
+# Using package*.json ensures it works even if package-lock.json is missing locally.
+COPY package*.json ./
 RUN npm install
 
 # Copy the rest of the application source code.
@@ -22,11 +21,16 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 
+# For native modules like bcrypt, Alpine needs some build tools.
+RUN apk add --no-cache python3 make g++
+
 # Copy package files again and install ONLY production dependencies.
 # This keeps the final image size small and more secure.
-COPY package.json ./
-# COPY package-lock.json ./
+COPY package*.json ./
 RUN npm install --omit=dev
+
+# After installing, we can remove the build tools to keep the image lean.
+RUN apk del python3 make g++
 
 # Copy the server-side JavaScript files needed to run the backend.
 COPY server.js .
@@ -46,6 +50,10 @@ EXPOSE 3000
 # Set the node environment to production.
 # This enables optimizations in Express and is used by our database logic.
 ENV NODE_ENV=production
+
+# Healthcheck to verify the application is responding
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/users/any-exist || exit 1
 
 # Command to run the application.
 CMD ["node", "server.js"]

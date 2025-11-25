@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Task, Theme } from '../types';
 import Tooltip from './Tooltip';
@@ -10,20 +11,37 @@ interface TaskItemProps {
   onRemove: (taskId: number) => void;
 }
 
-const StarRating: React.FC<{ rating: number; onRate: (rating: number) => void; theme: Theme; }> = ({ rating, onRate, theme }) => {
+const ImportanceFlag: React.FC<{ level: number; onClick: () => void; }> = ({ level, onClick }) => {
+    const levels = [
+        { color: 'text-gray-400', label: 'Low Importance' },
+        { color: 'text-yellow-500', label: 'Medium Importance' },
+        { color: 'text-red-600', label: 'High Importance' },
+    ];
+    const current = levels[level] || levels[0];
+
     return (
-        <div className="flex items-center">
-            {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                    key={star}
-                    onClick={() => onRate(star)}
-                    className="text-2xl"
-                    aria-label={`Rate ${star} stars`}
-                >
-                    <span className={star <= rating ? (theme === 'orange' ? 'text-orange-400' : 'text-yellow-400') : 'text-gray-400'}>★</span>
-                </button>
-            ))}
-        </div>
+        <Tooltip text={current.label}>
+            <button onClick={onClick} className={`transition-transform duration-150 ease-in-out hover:scale-125 ${current.color}`}>
+                {/* Waving Flag Icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M4 4a1 1 0 011-1h1.5a1 1 0 01.6.2l1.9 1.9 1.9-1.9a1 1 0 01.6-.2H18a1 1 0 011 1v10a1 1 0 01-1 1h-1.5a1 1 0 01-.6-.2l-1.9-1.9-1.9 1.9a1 1 0 01-.6.2H5a1 1 0 01-1-1V4z" />
+                    <path d="M4 16v5a1 1 0 11-2 0V4a1 1 0 011-1h1v13H4z" />
+                </svg>
+            </button>
+        </Tooltip>
+    );
+};
+
+const PinButton: React.FC<{ pinned: boolean; onClick: () => void }> = ({ pinned, onClick }) => {
+    return (
+        <Tooltip text={pinned ? "Unpin task" : "Pin task to top"}>
+            <button onClick={onClick} className={`transition-transform duration-150 ease-in-out hover:scale-125 ${pinned ? 'text-blue-500' : 'text-gray-400'}`}>
+                {/* Vertical Push Pin Icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z" />
+                </svg>
+            </button>
+        </Tooltip>
     );
 };
 
@@ -44,10 +62,18 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
         onUpdate({ ...task, description: description.trim() });
         setIsEditing(false);
     } else {
-        // Reset to original if empty
         setDescription(task.description);
         setIsEditing(false);
     }
+  };
+  
+  const handleToggleImportance = () => {
+      const newImportance = (task.importance + 1) % 3; // Cycles 0, 1, 2
+      onUpdate({ ...task, importance: newImportance });
+  };
+  
+  const handleTogglePinned = () => {
+      onUpdate({ ...task, pinned: !task.pinned });
   };
 
   const handleToggleComplete = () => {
@@ -59,10 +85,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
     onUpdate({ ...task, dueDate: e.target.value || null });
   };
 
-  const handleRatingChange = (newRating: number) => {
-    onUpdate({ ...task, importance: newRating });
-  };
-
   const handleDependencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value ? Number(e.target.value) : null;
     onUpdate({ ...task, dependsOn: selectedId });
@@ -72,8 +94,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
   const checkboxColor = isOrange ? 'text-orange-600' : 'text-blue-600';
   const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const borderFocusColor = isOrange ? 'border-orange-500' : 'border-blue-500';
+  // Enforce black text in inputs for Orange theme
+  const inputTextColor = isOrange ? 'text-gray-900' : '';
   
-  const availableDependencies = allTasksInList.filter(t => t.id !== task.id);
+  const availableDependencies = allTasksInList.filter(t => t.id !== task.id && !t.pinned); // Cannot depend on a pinned task
 
   const CheckboxWrapper = ({ children }: { children: React.ReactNode }) => {
     if (isDependencyIncomplete && dependencyTask) {
@@ -83,17 +107,26 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
   };
 
   return (
-    <div className={`flex items-center p-3 rounded-lg transition-colors ${task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm')}`}>
+    <div className={`flex items-center p-3 rounded-lg transition-colors ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))}`}>
+      {/* Complete Checkbox */}
       <CheckboxWrapper>
         <input
           type="checkbox"
           checked={task.completed}
           onChange={handleToggleComplete}
           disabled={isDependencyIncomplete}
-          className={`h-5 w-5 mr-4 rounded border-gray-300 ${checkboxColor} ${focusRingColor} ${isDependencyIncomplete ? 'cursor-not-allowed opacity-50' : ''}`}
+          className={`h-5 w-5 rounded border-gray-300 ${checkboxColor} ${focusRingColor} ${isDependencyIncomplete ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
           aria-label={isDependencyIncomplete ? `Cannot complete task, dependency '${dependencyTask?.description}' is incomplete` : 'Mark task as complete'}
         />
       </CheckboxWrapper>
+      
+      {/* Pin & Importance */}
+      <div className="flex items-center space-x-3 mx-3">
+          <PinButton pinned={task.pinned} onClick={handleTogglePinned} />
+          <ImportanceFlag level={task.importance} onClick={handleToggleImportance} />
+      </div>
+
+      {/* Description */}
       <div className="flex-grow">
         {isEditing ? (
           <input
@@ -101,42 +134,34 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={handleUpdate}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') handleUpdate();
-                if (e.key === 'Escape') {
-                    setDescription(task.description);
-                    setIsEditing(false);
-                }
-            }}
-            className={`w-full bg-transparent border-b ${borderFocusColor} focus:outline-none`}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleUpdate(); if (e.key === 'Escape') { setDescription(task.description); setIsEditing(false); } }}
+            className={`w-full bg-transparent border-b ${borderFocusColor} focus:outline-none ${inputTextColor} ${isOrange ? 'bg-white/10 rounded px-1' : ''}`}
             autoFocus
           />
         ) : (
-          <p
-            onClick={() => setIsEditing(true)}
-            className={`cursor-pointer ${task.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}
-          >
+          <p onClick={() => setIsEditing(true)} className={`cursor-pointer ${task.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
             {task.description}
           </p>
         )}
       </div>
+
+      {/* Controls */}
       <div className="flex items-center space-x-2 md:space-x-3 ml-3 shrink-0">
-        <StarRating rating={task.importance} onRate={handleRatingChange} theme={theme} />
         <div className="relative">
             <select
                 value={task.dependsOn || ''}
                 onChange={handleDependencyChange}
-                className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-28 md:w-32 appearance-none pr-7 ${isOrange ? 'text-gray-900' : ''}`}
+                className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-28 md:w-32 appearance-none pr-7 ${inputTextColor}`}
                 aria-label="Set task dependency"
             >
-                <option value="">No Dependency</option>
+                <option value="">Dependency</option>
                 {availableDependencies.map(depTask => (
                     <option key={depTask.id} value={depTask.id} title={depTask.description}>
                         {depTask.description.length > 25 ? depTask.description.substring(0, 25) + '...' : depTask.description}
                     </option>
                 ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+            <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300 ${inputTextColor}`}>
                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
             </div>
         </div>
@@ -144,7 +169,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             type="date"
             value={task.dueDate || ''}
             onChange={handleDateChange}
-            className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-28 md:w-32 ${isOrange ? 'text-gray-900' : ''}`}
+            className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent focus:outline-none w-28 md:w-32 ${inputTextColor}`}
         />
         <button
           onClick={() => onRemove(task.id)}

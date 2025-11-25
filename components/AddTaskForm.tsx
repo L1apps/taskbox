@@ -19,6 +19,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, theme }) => {
   
   const isOrange = theme === 'orange';
   const themeRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
+  const inputTextColor = isOrange ? 'text-gray-900' : '';
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-2">
@@ -27,7 +28,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, theme }) => {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Add a new task..."
-        className={`flex-grow px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${themeRingColor} ${isOrange ? 'text-gray-900' : ''}`}
+        className={`flex-grow px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${themeRingColor} ${inputTextColor}`}
       />
       <button
         type="submit"

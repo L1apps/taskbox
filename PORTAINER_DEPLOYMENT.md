@@ -40,6 +40,8 @@ This guide will walk you through deploying the TaskBox application using Portain
         environment:
           - NODE_ENV=production
           - PORT=3000
+          # It is strongly recommended to change this to a long, random string for security
+          - JWT_SECRET=your-super-secret-key-that-should-be-in-an-env-file
 
     volumes:
       taskbox_data:

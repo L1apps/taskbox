@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import type { Task, TaskList, Theme } from '../types';
+import type { Task, TaskListWithUsers, Theme } from '../types';
 import { SortOption } from '../types';
 import TaskItem from './TaskItem';
 import AddTaskForm from './AddTaskForm';
 
 interface TaskListViewProps {
-  list: TaskList;
+  list: TaskListWithUsers;
   theme: Theme;
   onUpdateTask: (task: Task) => void;
   onAddTask: (description: string) => void;
   onRemoveTask: (taskId: number) => void;
+  onPurgeCompleted: () => void;
 }
 
-const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, onAddTask, onRemoveTask }) => {
+const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, onAddTask, onRemoveTask, onPurgeCompleted }) => {
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState<SortOption>(SortOption.DEFAULT);
   const [showCompleted, setShowCompleted] = useState(true);
@@ -24,31 +25,37 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
       .filter(task => task.description.toLowerCase().includes(filter.toLowerCase()))
       .filter(task => showCompleted || !task.completed);
 
+    // Separate pinned from unpinned tasks
+    const pinnedTasks = filteredTasks.filter(t => t.pinned);
+    const unpinnedTasks = filteredTasks.filter(t => !t.pinned);
+
+    // Sort only the unpinned tasks
     switch (sort) {
       case SortOption.DESCRIPTION_ASC:
-        filteredTasks.sort((a, b) => a.description.localeCompare(b.description));
+        unpinnedTasks.sort((a, b) => a.description.localeCompare(b.description));
         break;
       case SortOption.DESCRIPTION_DESC:
-        filteredTasks.sort((a, b) => b.description.localeCompare(a.description));
+        unpinnedTasks.sort((a, b) => b.description.localeCompare(a.description));
         break;
       case SortOption.DUE_DATE_ASC:
-        filteredTasks.sort((a, b) => (a.dueDate || 'z').localeCompare(b.dueDate || 'z'));
+        unpinnedTasks.sort((a, b) => (a.dueDate || 'z').localeCompare(b.dueDate || 'z'));
         break;
       case SortOption.DUE_DATE_DESC:
-        filteredTasks.sort((a, b) => (b.dueDate || 'a').localeCompare(a.dueDate || 'a'));
+        unpinnedTasks.sort((a, b) => (b.dueDate || 'a').localeCompare(a.dueDate || 'a'));
         break;
       case SortOption.COMPLETED:
-        filteredTasks.sort((a, b) => Number(a.completed) - Number(b.completed));
+        unpinnedTasks.sort((a, b) => Number(a.completed) - Number(b.completed));
           break;
       case SortOption.IMPORTANCE:
-        filteredTasks.sort((a, b) => b.importance - a.importance);
+        unpinnedTasks.sort((a, b) => b.importance - a.importance);
         break;
       default:
         // Keep original order which is likely insertion order (by id)
-        filteredTasks.sort((a,b) => a.id - b.id);
+        unpinnedTasks.sort((a,b) => a.id - b.id);
         break;
     }
-    return filteredTasks;
+    // Pinned tasks always come first
+    return [...pinnedTasks, ...unpinnedTasks];
   }, [tasks, filter, sort, showCompleted]);
 
   const completionPercentage = useMemo(() => {
@@ -61,26 +68,25 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
   const progressColor = isOrange ? 'bg-orange-500' : 'bg-blue-500';
   const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const checkboxColor = isOrange ? 'text-orange-600' : 'text-blue-600';
+  const buttonColor = isOrange ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700';
+  
+  // Ensure text is black in inputs for orange theme
+  const inputTextColor = isOrange ? 'text-gray-900' : '';
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-6">
-        <h2 className={`text-2xl sm:text-3xl font-bold ${isOrange ? '' : 'text-gray-900 dark:text-white'}`}>{list.title}</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{list.description}</p>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row gap-4 mb-4 items-center flex-wrap">
         <input
           type="text"
           placeholder="Search tasks..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className={`flex-grow w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${focusRingColor} ${isOrange ? 'text-gray-900' : ''}`}
+          className={`flex-grow w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${focusRingColor} ${inputTextColor}`}
         />
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortOption)}
-          className={`px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${focusRingColor} ${isOrange ? 'text-gray-900' : ''}`}
+          className={`px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${focusRingColor} ${inputTextColor}`}
         >
           <option value={SortOption.DEFAULT}>Sort by (Default)</option>
           <option value={SortOption.IMPORTANCE}>Importance</option>
@@ -99,6 +105,17 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
           />
           <span>Show Completed</span>
         </label>
+        <div className="flex-grow sm:flex-grow-0 sm:ml-auto">
+            <button
+                onClick={onPurgeCompleted}
+                className={`px-3 py-2 text-white text-sm rounded-md transition flex items-center space-x-2 ${buttonColor}`}
+                >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>Purge Completed</span>
+            </button>
+        </div>
       </div>
 
       <div className="space-y-3">

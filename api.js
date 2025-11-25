@@ -1,217 +1,316 @@
 
 import express from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
-// This function creates and configures the API router.
-// It accepts the database connection as a dependency.
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-that-should-be-in-an-env-file';
+const SALT_ROUNDS = 10;
+
+// --- Utility Functions ---
+const logActivity = (db, level, message) => {
+    // Fire-and-forget logging
+    db('activity_log').insert({ level, message })
+        .then(() => {
+            // Log Rotation: Delete logs older than 30 days to keep DB size manageable
+            return db('activity_log')
+                .where('timestamp', '<', db.raw("date('now', '-30 days')"))
+                .del();
+        })
+        .catch(err => console.error("Logging failed:", err));
+};
+
+// --- Authentication Middleware ---
+const authMiddleware = (db) => async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Authentication token required.' });
+    }
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const [user] = await db('users').where('id', decoded.userId).select('id', 'username', 'role');
+        if (!user) {
+            return res.status(401).json({ message: 'User not found.' });
+        }
+        req.user = user;
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Invalid or expired token.' });
+    }
+};
+
+const adminOnly = (req, res, next) => {
+    if (req.user && req.user.role === 'ADMIN') {
+        return next();
+    }
+    return res.status(403).json({ message: 'Administrator access required.' });
+};
+
+
 export function createApiRouter(db) {
   const router = express.Router();
+  const authenticate = authMiddleware(db);
 
-  // Health check endpoint to verify server and database connectivity
-  router.get('/health', async (req, res) => {
-    try {
-      // Performs a simple query to ensure the database connection is alive
-      await db.raw('SELECT 1');
-      res.status(200).json({ status: 'ok', database: 'connected' });
-    } catch (dbError) {
-      console.error('Health check failed to connect to database:', dbError);
-      // 503 Service Unavailable is an appropriate status code here
-      res.status(503).json({ status: 'error', database: 'disconnected' });
-    }
+  // --- Public Routes (Authentication & Setup) ---
+  router.get('/users/any-exist', async (req, res) => {
+      const users = await db('users').select('id').limit(1);
+      res.json({ usersExist: users.length > 0 });
   });
 
-  // Get all lists with their tasks
-  router.get('/lists', async (req, res) => {
-    try {
-      const lists = await db('lists').select('*').orderBy('id');
-      const tasks = await db('tasks').select('*');
-      const listsWithTasks = lists.map(list => ({
-        ...list,
-        tasks: tasks.filter(task => task.list_id === list.id)
-      }));
-      res.json(listsWithTasks);
-    } catch (err) {
-      console.error('Error in GET /api/lists:', err);
-      res.status(500).json({ message: 'An internal server error occurred while fetching lists.' });
-    }
-  });
+  router.post('/users/register', async (req, res) => {
+      const { username, password } = req.body;
+      const users = await db('users').select('id').limit(1);
+      
+      const role = users.length === 0 ? 'ADMIN' : 'USER';
 
-  // Create a new list
-  router.post('/lists', async (req, res) => {
-    try {
-      const { title, description } = req.body;
-      if (!title || typeof title !== 'string' || title.trim() === '') {
-        return res.status(400).json({ message: 'Title is required and must be a non-empty string.' });
+      if (role === 'USER') {
+          return res.status(403).json({ message: 'Registration is closed. An admin must create new users.' });
       }
-      const [insertedId] = await db('lists').insert({ title: title.trim(), description });
-      const [newList] = await db('lists').where('id', insertedId).select('*');
-      res.status(201).json({ ...newList, tasks: [] });
-    } catch (err) {
-      console.error('Error in POST /api/lists:', err);
-      res.status(500).json({ message: 'An internal server error occurred while creating the list.' });
-    }
+
+      if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required.' });
+      }
+      if (password.length < 6) {
+          return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+      }
+
+      const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+      const [userId] = await db('users').insert({ username, password_hash, role });
+
+      logActivity(db, 'INFO', `Initial admin user '${username}' created.`);
+
+      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+      res.status(201).json({ token, user: { id: userId, username, role } });
   });
 
-  // Delete a list
-  router.delete('/lists/:id', async (req, res) => {
-    try {
+  router.post('/users/login', async (req, res) => {
+      const { username, password } = req.body;
+      const [user] = await db('users').where('username', username);
+      if (user && await bcrypt.compare(password, user.password_hash)) {
+          const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+          logActivity(db, 'INFO', `User '${username}' logged in successfully.`);
+          res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+      } else {
+          logActivity(db, 'WARN', `Failed login attempt for user '${username}'.`);
+          res.status(401).json({ message: 'Invalid credentials.' });
+      }
+  });
+
+  // --- Protected Routes ---
+  router.get('/users/me', authenticate, (req, res) => {
+      res.json(req.user);
+  });
+  
+  router.get('/users', authenticate, async (req, res) => {
+      const users = await db('users').select('id', 'username', 'role');
+      res.json(users);
+  });
+
+  // --- Admin Routes ---
+  router.post('/admin/users', authenticate, adminOnly, async (req, res) => {
+      const { username, password } = req.body;
+      if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
+      if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+
+      const [existingUser] = await db('users').where({ username });
+      if (existingUser) return res.status(409).json({ message: 'Username already exists.' });
+
+      const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+      const [userId] = await db('users').insert({ username, password_hash, role: 'USER' });
+      const [newUser] = await db('users').where({ id: userId }).select('id', 'username', 'role');
+      
+      logActivity(db, 'INFO', `Admin '${req.user.username}' created user '${username}'.`);
+      res.status(201).json(newUser);
+  });
+  
+  router.delete('/admin/users/:id', authenticate, adminOnly, async (req, res) => {
       const { id } = req.params;
-      await db('tasks').where('list_id', id).del();
-      const count = await db('lists').where('id', id).del();
-      if (count > 0) {
-        res.status(204).send();
-      } else {
-        res.status(404).json({ message: 'List not found' });
-      }
-    } catch (err) {
-      console.error(`Error in DELETE /api/lists/${req.params.id}:`, err);
-      res.status(500).json({ message: 'An internal server error occurred while deleting the list.' });
-    }
+      if (Number(id) === req.user.id) return res.status(400).json({ message: 'Cannot delete your own account.' });
+
+      const [userToDelete] = await db('users').where({ id });
+      if (!userToDelete) return res.status(404).json({ message: 'User not found.' });
+
+      await db('users').where({ id }).del();
+      logActivity(db, 'WARN', `Admin '${req.user.username}' deleted user '${userToDelete.username}'.`);
+      res.status(204).send();
+  });
+  
+  router.get('/admin/logs', authenticate, adminOnly, async (req, res) => {
+      const logs = await db('activity_log').orderBy('timestamp', 'desc').limit(100);
+      res.json(logs);
   });
 
-  // Add a task to a list
-  router.post('/lists/:listId/tasks', async (req, res) => {
-    try {
-      const { listId } = req.params;
+
+  // Get lists owned by or shared with the current user
+  router.get('/lists', authenticate, async (req, res) => {
+      const ownedLists = await db('lists').where('owner_id', req.user.id);
+      const sharedListIds = await db('list_shares').where('user_id', req.user.id).pluck('list_id');
+      const sharedLists = await db('lists').whereIn('id', sharedListIds);
+      
+      const allUserLists = [...ownedLists, ...sharedLists];
+      const allListIds = allUserLists.map(l => l.id);
+
+      if (allListIds.length === 0) {
+        return res.json([]);
+      }
+
+      const [tasks, shares, users] = await Promise.all([
+          db('tasks').whereIn('list_id', allListIds),
+          db('list_shares').whereIn('list_id', allListIds),
+          db('users').select('id', 'username')
+      ]);
+      
+      const usersById = users.reduce((acc, u) => ({...acc, [u.id]: u }), {});
+      
+      const listsWithDetails = allUserLists.map(list => {
+          const listShares = shares.filter(s => s.list_id === list.id);
+          return {
+              ...list,
+              ownerId: list.owner_id,
+              tasks: tasks.filter(task => task.list_id === list.id).sort((a,b) => a.id - b.id),
+              sharedWith: listShares.map(s => usersById[s.user_id]).filter(Boolean)
+          };
+      });
+      res.json(listsWithDetails);
+  });
+  
+  router.post('/lists', authenticate, async (req, res) => {
+    const { title, description } = req.body;
+    if (!title || title.length > 100) return res.status(400).json({ message: "Title is required and must be under 100 characters." });
+    
+    const [insertedId] = await db('lists').insert({ title, description, owner_id: req.user.id });
+    const [newList] = await db('lists').where({ id: insertedId, owner_id: req.user.id });
+    res.status(201).json({ ...newList, ownerId: newList.owner_id, tasks: [], sharedWith: [] });
+  });
+
+  const canAccessList = async (req, res, next) => {
+      const { listId, id } = req.params;
+      const effectiveListId = listId || id;
+      const [list] = await db('lists').where('id', effectiveListId);
+      if (!list) return res.status(404).json({ message: 'List not found' });
+      const isOwner = list.owner_id === req.user.id;
+      const isShared = await db('list_shares').where({ list_id: effectiveListId, user_id: req.user.id }).first();
+      if (!isOwner && !isShared) return res.status(403).json({ message: 'Access denied' });
+      req.list = list;
+      req.isOwner = isOwner;
+      next();
+  };
+
+  router.delete('/lists/:id', authenticate, canAccessList, async (req, res) => {
+      if (!req.isOwner) return res.status(403).json({ message: 'Only the owner can delete a list.' });
+      await db('lists').where('id', req.params.id).del();
+      res.status(204).send();
+  });
+  
+  router.delete('/lists/:listId/tasks/completed', authenticate, canAccessList, async (req, res) => {
+      await db('tasks').where({ list_id: req.params.listId, completed: true }).del();
+      res.status(204).send();
+  });
+
+  router.post('/lists/:id/shares', authenticate, canAccessList, async (req, res) => {
+      if (!req.isOwner) return res.status(403).json({ message: 'Only the owner can share a list.' });
+      const { userId } = req.body;
+      if (userId === req.user.id) return res.status(400).json({ message: 'Cannot share a list with yourself.'});
+      await db('list_shares').insert({ list_id: req.params.id, user_id: userId }).onConflict().ignore();
+      res.status(201).send();
+  });
+  
+  router.delete('/lists/:id/shares/:userId', authenticate, canAccessList, async (req, res) => {
+      if (!req.isOwner) return res.status(403).json({ message: 'Only the owner can manage sharing.' });
+      await db('list_shares').where({ list_id: req.params.id, user_id: req.params.userId }).del();
+      res.status(204).send();
+  });
+
+  router.post('/lists/:listId/tasks', authenticate, canAccessList, async (req, res) => {
       const { description } = req.body;
-      if (!description || typeof description !== 'string' || description.trim() === '') {
-        return res.status(400).json({ message: 'Description is required and must be a non-empty string.' });
+      if (!description || description.length > 500) {
+          return res.status(400).json({ message: "Description is required and must be under 500 characters." });
       }
-      const newTaskData = {
-        description: description.trim(),
-        completed: false,
-        dueDate: null,
-        importance: 1,
-        dependsOn: null,
-        list_id: parseInt(listId, 10)
-      };
+      const newTaskData = { description, list_id: req.params.listId, importance: 0, pinned: false, completed: false };
       const [insertedId] = await db('tasks').insert(newTaskData);
-      const [newTask] = await db('tasks').where('id', insertedId).select('*');
+      const [newTask] = await db('tasks').where('id', insertedId);
       res.status(201).json(newTask);
-    } catch (err) {
-      console.error(`Error in POST /api/lists/${req.params.listId}/tasks:`, err);
-      res.status(500).json({ message: 'An internal server error occurred while adding the task.' });
-    }
   });
-
-  // Bulk add tasks to a list
-  router.post('/lists/:listId/tasks/bulk', async (req, res) => {
-    const { listId } = req.params;
-    const { tasks } = req.body;
-
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      return res.status(400).json({ message: 'Request body must be an array of tasks.' });
-    }
-
-    try {
-      const tasksToInsert = tasks.map(task => ({
-        description: task.description,
-        completed: !!task.completed,
-        dueDate: task.dueDate || null,
-        importance: typeof task.importance === 'number' ? Math.max(0, Math.min(5, task.importance)) : 1,
-        dependsOn: null, // Dependencies are not supported via bulk import
-        list_id: parseInt(listId, 10),
+  
+  // Bulk add tasks for Import feature
+  router.post('/lists/:listId/tasks/bulk', authenticate, canAccessList, async (req, res) => {
+      const { tasks } = req.body;
+      if (!Array.isArray(tasks)) {
+          return res.status(400).json({ message: 'Tasks must be an array' });
+      }
+      
+      const tasksToInsert = tasks.map(t => ({
+          description: t.description ? t.description.substring(0, 500) : "Untitled Task",
+          completed: !!t.completed,
+          dueDate: t.dueDate || null,
+          importance: t.importance || 0,
+          list_id: req.params.listId,
+          pinned: false
       }));
 
-      const validTasks = tasksToInsert.filter(t => t.description && typeof t.description === 'string' && t.description.trim() !== '');
-      if (validTasks.length === 0) {
-        return res.status(400).json({ message: 'No valid tasks with descriptions provided.' });
+      try {
+          // Use transaction for bulk insert if supported or just standard insert
+          await db('tasks').insert(tasksToInsert);
+          res.status(201).send();
+      } catch (err) {
+          console.error("Bulk insert failed:", err);
+          res.status(500).json({ message: 'Failed to import tasks' });
       }
+  });
+  
+  router.put('/tasks/:taskId', authenticate, async (req, res) => {
+    const { taskId } = req.params;
+    const [task] = await db('tasks').where('id', taskId);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+    
+    const [list] = await db('lists').where('id', task.list_id);
+    if (!list) return res.status(404).json({ message: 'Parent list not found' });
+    const isOwner = list.owner_id === req.user.id;
+    const isShared = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
+    if (!isOwner && !isShared) return res.status(403).json({ message: 'Access denied' });
+    
+    const { description, completed, dueDate, importance, dependsOn, pinned } = req.body;
 
-      // Using .returning('*') which is supported by knex with sqlite3 driver
-      const newTasks = await db('tasks').insert(validTasks).returning('*');
-      
-      res.status(201).json(newTasks);
-
-    } catch (err) {
-      console.error(`Error in POST /api/lists/${listId}/tasks/bulk:`, err);
-      res.status(500).json({ message: 'An internal server error occurred while bulk adding tasks.' });
+    if (description !== undefined && description.length > 500) {
+        return res.status(400).json({ message: "Description must be under 500 characters." });
     }
+
+    if (dependsOn !== undefined) {
+      if (dependsOn !== null && Number(dependsOn) === Number(taskId)) return res.status(409).json({ message: "A task cannot depend on itself." });
+      if (dependsOn !== null) {
+          const [dependencyTask] = await db('tasks').where('id', dependsOn);
+          if (!dependencyTask) return res.status(404).json({ message: 'Dependency task not found.' });
+          if (task.list_id !== dependencyTask.list_id) return res.status(409).json({ message: 'Tasks must be in the same list to set a dependency.' });
+          if (dependencyTask.dependsOn === Number(taskId)) return res.status(409).json({ message: 'Circular dependency detected.' });
+      }
+    }
+    if (completed === true) {
+      const dependencyId = dependsOn !== undefined ? dependsOn : task.dependsOn;
+      if (dependencyId) {
+          const [dependency] = await db('tasks').where('id', dependencyId).select('completed');
+          if (dependency && !dependency.completed) return res.status(409).json({ message: 'Cannot complete a task while its dependency is incomplete.' });
+      }
+    }
+    const updatePayload = { description, completed, dueDate, importance, dependsOn, pinned };
+    Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
+    await db('tasks').where('id', taskId).update(updatePayload);
+    const [updatedTask] = await db('tasks').where('id', taskId);
+    res.json(updatedTask);
   });
 
-  // Update a task
-  router.put('/tasks/:taskId', async (req, res) => {
-    try {
+  router.delete('/tasks/:taskId', authenticate, async (req, res) => {
       const { taskId } = req.params;
-      const { description, completed, dueDate, importance, dependsOn } = req.body;
+      const [task] = await db('tasks').where('id', taskId);
+      if (!task) return res.status(404).json({ message: 'Task not found' });
       
-      if (description !== undefined && (typeof description !== 'string' || description.trim() === '')) {
-        return res.status(400).json({ message: 'Description must be a non-empty string.' });
-      }
-
-      // --- Dependency Validation ---
-      if (dependsOn !== undefined) {
-          // A task cannot depend on itself
-          if (dependsOn !== null && Number(dependsOn) === Number(taskId)) {
-            return res.status(409).json({ message: "A task cannot depend on itself." });
-          }
-
-          // If setting a dependency, check that it's valid
-          if (dependsOn !== null) {
-              const [currentTask] = await db('tasks').where('id', taskId).select('list_id');
-              const [dependencyTask] = await db('tasks').where('id', dependsOn).select('list_id', 'dependsOn');
-
-              if (!dependencyTask) {
-                return res.status(404).json({ message: 'Dependency task not found.' });
-              }
-              if (currentTask.list_id !== dependencyTask.list_id) {
-                return res.status(409).json({ message: 'Tasks must be in the same list to set a dependency.' });
-              }
-              // Prevent simple circular dependencies (A->B, B->A)
-              if (dependencyTask.dependsOn === Number(taskId)) {
-                return res.status(409).json({ message: 'Circular dependency detected. Cannot set this dependency.' });
-              }
-          }
-      }
-
-      // Prevent completing a task if its dependency is incomplete
-      if (completed === true) {
-        const [taskToCheck] = await db('tasks').where('id', taskId).select('dependsOn');
-        // Use the new dependsOn from payload if provided, otherwise the one from DB
-        const dependencyId = dependsOn !== undefined ? dependsOn : taskToCheck.dependsOn; 
-        if (dependencyId) {
-            const [dependency] = await db('tasks').where('id', dependencyId).select('completed');
-            if (dependency && !dependency.completed) {
-                return res.status(409).json({ message: 'Cannot complete a task while its dependency is incomplete.' });
-            }
-        }
-      }
-      // --- End Validation ---
-
-      const updatePayload = { description: description?.trim(), completed, dueDate, importance, dependsOn };
-      Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
-
-      if (Object.keys(updatePayload).length === 0) {
-        return res.status(400).json({ message: 'No valid fields provided for update.' });
-      }
-
-      const count = await db('tasks').where('id', taskId).update(updatePayload);
-
-      if (count > 0) {
-        const [updatedTask] = await db('tasks').where('id', taskId).select('*');
-        res.json(updatedTask);
-      } else {
-        res.status(404).json({ message: 'Task not found' });
-      }
-    } catch (err) {
-      console.error(`Error in PUT /api/tasks/${req.params.taskId}:`, err);
-      res.status(500).json({ message: 'An internal server error occurred while updating the task.' });
-    }
-  });
-
-  // Delete a task
-  router.delete('/tasks/:taskId', async (req, res) => {
-    try {
-      const { taskId } = req.params;
-      const count = await db('tasks').where('id', taskId).del();
-      if (count > 0) {
-        res.status(204).send();
-      } else {
-        res.status(404).json({ message: 'Task not found' });
-      }
-    } catch (err) {
-      console.error(`Error in DELETE /api/tasks/${req.params.taskId}:`, err);
-      res.status(500).json({ message: 'An internal server error occurred while deleting the task.' });
-    }
+      const [list] = await db('lists').where('id', task.list_id);
+      if (!list) return res.status(404).json({ message: 'Parent list not found' });
+      const isOwner = list.owner_id === req.user.id;
+      const isShared = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
+      if (!isOwner && !isShared) return res.status(403).json({ message: 'Access denied' });
+      
+      await db('tasks').where('id', taskId).del();
+      res.status(204).send();
   });
 
   return router;

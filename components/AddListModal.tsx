@@ -21,6 +21,7 @@ const AddListModal: React.FC<AddListModalProps> = ({ onClose, onAddList, theme }
   
   const isOrange = theme === 'orange';
   const themeRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
+  const inputTextColor = isOrange ? 'text-gray-900' : '';
 
   return (
     <Modal title="Create New List" onClose={onClose} theme={theme}>
@@ -34,7 +35,7 @@ const AddListModal: React.FC<AddListModalProps> = ({ onClose, onAddList, theme }
             id="list-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600`}
+            className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
             required
             autoFocus
           />
@@ -48,7 +49,7 @@ const AddListModal: React.FC<AddListModalProps> = ({ onClose, onAddList, theme }
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600`}
+            className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
           />
         </div>
         <div className="flex justify-end pt-2 space-x-2">

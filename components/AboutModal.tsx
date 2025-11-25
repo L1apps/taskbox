@@ -1,3 +1,4 @@
+
 import React from 'react';
 import Modal from './Modal';
 import { Theme } from '../types';
@@ -9,8 +10,7 @@ interface AboutModalProps {
 
 const AboutModal: React.FC<AboutModalProps> = ({ onClose, theme }) => {
   const isOrange = theme === 'orange';
-  // In a real app, this might be dynamically injected at build time
-  const version = "1.1.0"; 
+  const version = "2.3.2"; 
 
   return (
     <Modal title="About TaskBox" onClose={onClose} theme={theme}>
@@ -33,7 +33,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ onClose, theme }) => {
         </div>
         
         <div className="pt-4 border-t dark:border-gray-700">
-          <p>Developed by <a href="https://l1apps.com" target="_blank" rel="noopener noreferrer" className={`${isOrange ? 'text-orange-400' : 'text-blue-500 dark:text-blue-400'} hover:underline font-semibold`}>Level 1 Apps</a>.</p>
+          <p>Developed by <a href="https://l1apps.com/taskbox/" target="_blank" rel="noopener noreferrer" className={`${isOrange ? 'text-orange-400' : 'text-blue-500 dark:text-blue-400'} hover:underline font-semibold`}>Level 1 Apps</a>.</p>
           <p>For support or inquiries, please visit our website.</p>
           <p className="mt-2 text-xs text-gray-400">All Rights Reserved Level 1 Apps © 2025</p>
         </div>

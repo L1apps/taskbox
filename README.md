@@ -1,41 +1,45 @@
 # TaskBox - Your Personal Task Manager
 
-**Version:** 1.1.0
+**Version:** 2.3.2
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
+
+![TaskBox Screenshot](https://l1apps.com/taskbox-screenshot/)
 
 ---
 
 ### Short Description
 
-TaskBox is a standalone, feature-rich task management application designed to organize your to-do lists efficiently. Built with Node.js and React, and packaged in Docker, it provides a persistent, self-hosted solution for all your task management needs.
+TaskBox is a standalone, feature-rich task management application designed for individuals and teams. It now includes multi-user support with admin controls, list sharing, activity logging, and enhanced task organization features, all packaged in a secure, self-hosted Docker container.
 
 ### Long Description
 
-TaskBox is a powerful and intuitive to-do list application that you can host on your own server or NAS using Docker. It provides a clean, modern interface for managing multiple task lists, from a simple shopping list to complex project tasks. The application features a persistent SQLite database backend, ensuring your data is always saved and available. With features like task prioritization, due dates, filtering, sorting, and completion tracking, TaskBox is the perfect tool to boost your productivity. Customize your experience with multiple themes (Light, Dark, Orange/Black) and easily import or export your tasks.
+TaskBox is a powerful and intuitive to-do list application that you can host on your own server. It provides a clean, modern interface for managing multiple task lists, from a simple shopping list to complex project tasks. With full multi-user support, you can create accounts for your family or team and share lists for seamless collaboration. The new Admin Panel allows the administrator to manage users and view a security activity log. The application features a persistent SQLite database backend, ensuring your data is always saved and available. With features like task pinning, 3-level importance flags, due dates, dependencies, and a new purge function, TaskBox is the perfect tool to boost your productivity.
 
 ---
 
 ## Features
 
-*   **Multiple Lists:** Organize your tasks into separate lists with custom titles and descriptions.
-*   **Comprehensive Task Management:** Add, edit, delete, and mark tasks as complete.
-*   **Task Details:** Assign importance (star rating), due dates, and even dependencies between tasks in the same list.
+*   **Multi-User Support:** Secure user registration and login system.
+*   **Admin Panel & User Management:** The first user becomes the admin, with the ability to create and delete other user accounts.
+*   **Activity Logging:** Admins can view a log of important security events like logins and user management actions.
+*   **Shared Lists:** List owners can share their lists with other users for collaboration.
+*   **Import Tasks from File:** Bulk import tasks from CSV or TXT files.
+*   **Pinned Tasks:** Pin your most important tasks to the top of a list for easy access.
+*   **3-Level Importance:** Assign a Low, Medium, or High importance level to tasks using colored flags.
+*   **Purge Completed Tasks:** Clean up your lists by removing all completed tasks with a single click.
+*   **Task Dependencies:** Set prerequisites for tasks within the same list.
 *   **Filtering and Sorting:** Quickly find tasks by searching, or sort by importance, description, due date, or completion status.
-*   **Progress Tracking:** Visualize your list's completion with a percentage-based progress bar.
-*   **Statistics Page:** View detailed statistics about your tasks, including overall and per-list completion rates and overdue tasks.
-*   **Custom Themes:** Switch between Light, Dark, and a special Orange/Black theme to suit your preference.
-*   **Data Persistence:** Your data is safely stored in an SQLite database, persisted via a Docker volume.
-*   **Import/Export:** Easily import tasks from CSV/TXT files and export your task lists to CSV.
-*   **Easy Deployment:** Deploy in minutes using the provided Docker Compose file.
+*   **Statistics Page:** View detailed statistics about your tasks, including overall and per-list completion rates.
+*   **Custom Themes:** Switch between Light, Dark, and a special Orange/Black theme (High Contrast).
 
 ---
 
 ## Tech Stack
 
 *   **Frontend:** React, Tailwind CSS
-*   **Backend:** Node.js, Express.js
+*   **Backend:** Node.js, Express.js with JWT for authentication.
 *   **Database:** SQLite
 *   **Containerization:** Docker, Docker Compose
 
@@ -44,6 +48,10 @@ TaskBox is a powerful and intuitive to-do list application that you can host on 
 ## Installation
 
 The recommended method for installation is using Docker Compose.
+
+### Important: Set Your Security Key
+
+For security, you must generate a strong random string for your `JWT_SECRET`. You can generate one using `openssl rand -hex 32` or any password generator. Replace `your-super-secret-key...` below with your generated key.
 
 1.  **Create a directory for TaskBox:**
     
@@ -70,6 +78,8 @@ The recommended method for installation is using Docker Compose.
         environment:
           - NODE_ENV=production
           - PORT=3000
+          # It is strongly recommended to change this to a long, random string for security
+          - JWT_SECRET=your-super-secret-key-that-should-be-in-an-env-file
     ```
 
 3.  **Start the container:**
@@ -78,26 +88,26 @@ The recommended method for installation is using Docker Compose.
     docker-compose up -d
     ```
 
-4.  **Access TaskBox:**
-    Open your web browser and navigate to `http://<your-server-ip>:6500`.
+4.  **Access TaskBox & Initial Setup:**
+    Open your web browser and navigate to `http://<your-server-ip>:6500`. On the first run, you will be prompted to create the first administrator account. After that, the application will switch to multi-user mode and present a login screen.
 
 ---
 
 ## Version History
 
-*   **v1.1.0**
-    *   Added a statistics modal to view overall and per-list task metrics.
-    *   Statistics include completion percentage, overdue tasks, and total task counts.
-*   **v1.0.0 (Initial Release)**
-    *   Initial public release.
-    *   Core features: multi-list support, task CRUD, sorting, filtering, themes, task dependencies.
-    *   Node.js backend with SQLite database.
-    *   Docker container for easy deployment.
+For a detailed list of changes for every version, please see the [CHANGELOG.md](CHANGELOG.md).
+
+*   **v2.3.2 (Current):** UI/UX fixes (tooltips, dependencies), Security updates.
+*   **v2.3.0:** UI Polish, Orange Theme visibility fixes, Icon updates, Tabbed interface.
+*   **v2.2.0:** Import Tasks, Security Documentation.
+*   **v2.1.0:** Admin Panel, Activity Log.
+*   **v2.0.0:** Multi-user, Sharing, Pins, Flags.
+*   **v1.0.0:** Initial Release.
 
 ---
 
 ## Support and Contribution
 
-Developed by [Level 1 Apps](https://l1apps.com).
+Developed by [Level 1 Apps](https://l1apps.com/taskbox/).
 
 For support or inquiries, please visit our website. All Rights Reserved Level 1 Apps © 2025.

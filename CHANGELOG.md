@@ -3,6 +3,12 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [2.5.1] - 2025-05-29
+### Changed
+- **Layout:** Moved List Tabs back to the left side.
+- **UI:** Moved List Settings and Delete List controls from individual tabs to the main task list header.
+- **UI:** Improved styling for the list header area.
+
 ## [2.5.0] - 2025-05-28
 ### Added
 - **User Account Settings:** Users can now change their own username and password via a new settings gear icon.

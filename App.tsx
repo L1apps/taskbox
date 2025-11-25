@@ -404,17 +404,30 @@ const App: React.FC = () => {
           
           { !loading && !error && (
             <>
-              {/* Main Task View - Takes available space on Left */}
-              <div className="flex-grow order-2 md:order-1 overflow-hidden h-full">
+               {/* Tabs Sidebar - Fixed width on Left */}
+               <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 shrink-0 bg-gray-50 dark:bg-gray-900/50">
+                  <TaskListTabs
+                    lists={lists}
+                    activeListId={activeListId}
+                    onSelectList={setActiveListId}
+                    theme={theme}
+                  />
+              </div>
+
+              {/* Main Task View - Takes available space on Right */}
+              <div className="flex-grow overflow-hidden h-full">
                   {activeList ? (
                     <TaskListView
                       key={activeList.id}
                       list={activeList}
+                      currentUser={user}
                       theme={theme}
                       onUpdateTask={(task) => updateTask(activeList.id, task)}
                       onPurgeCompleted={() => purgeCompletedTasks(activeList.id)}
                       onAddTask={(desc) => addTask(activeList.id, desc)}
                       onRemoveTask={(taskId) => removeTask(activeList.id, taskId)}
+                      onRemoveList={() => removeList(activeList.id)}
+                      onShareList={() => setListToShare(activeList)}
                     />
                   ) : (
                     <div className="p-16 text-center text-gray-500 h-full flex flex-col justify-center">
@@ -422,19 +435,6 @@ const App: React.FC = () => {
                       <p>Create a new list to get started!</p>
                     </div>
                   )}
-              </div>
-              
-              {/* Tabs Sidebar - Fixed width on Right */}
-              <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-gray-200 dark:border-gray-700 order-1 md:order-2 shrink-0 bg-gray-50 dark:bg-gray-900/50">
-                  <TaskListTabs
-                    lists={lists}
-                    activeListId={activeListId}
-                    currentUser={user}
-                    onSelectList={setActiveListId}
-                    onRemoveList={removeList}
-                    onShareList={setListToShare}
-                    theme={theme}
-                  />
               </div>
             </>
           )}

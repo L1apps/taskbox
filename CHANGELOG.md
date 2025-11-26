@@ -3,6 +3,11 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [2.5.3] - 2025-06-01
+### Fixed
+- **Task Created Date:** Fixed an issue where the creation date of tasks was displayed as "N/A" by ensuring proper data normalization from the database.
+- **Date Formatting:** Forced the task creation date to display in `mm/dd/yyyy` format.
+
 ## [2.5.2] - 2025-05-30
 ### Added
 - **User Settings:** Added a "Session Timeout" setting, allowing users to override the global logout timer with their own preference (e.g., 30m, 1d, 30d).

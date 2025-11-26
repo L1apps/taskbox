@@ -106,8 +106,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
     return <>{children}</>;
   };
 
-  // Format Created At date for display
-  const createdDate = task.createdAt ? new Date(task.createdAt).toLocaleDateString() : '-';
+  // Format Created At date for display explicitly as mm/dd/yyyy
+  const createdDate = task.createdAt 
+    ? new Date(task.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) 
+    : '-';
 
   return (
     <div className={`flex flex-col md:flex-row md:items-center p-3 rounded-lg transition-colors gap-2 md:gap-0 ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))}`}>

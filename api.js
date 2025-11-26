@@ -20,6 +20,17 @@ const logActivity = (db, level, message) => {
         .catch(err => console.error("Logging failed:", err));
 };
 
+const normalizeTask = (task) => {
+    if (!task) return null;
+    return {
+        ...task,
+        createdAt: task.created_at, // Map DB column to frontend property
+        // Ensure other fields are passed through correctly
+        completed: Boolean(task.completed),
+        pinned: Boolean(task.pinned)
+    };
+};
+
 // --- Authentication Middleware ---
 const authMiddleware = (db) => async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -238,10 +249,11 @@ export function createApiRouter(db) {
       
       const listsWithDetails = allUserLists.map(list => {
           const listShares = shares.filter(s => s.list_id === list.id);
+          const rawTasks = tasks.filter(task => task.list_id === list.id).sort((a,b) => a.id - b.id);
           return {
               ...list,
               ownerId: list.owner_id,
-              tasks: tasks.filter(task => task.list_id === list.id).sort((a,b) => a.id - b.id),
+              tasks: rawTasks.map(normalizeTask), // Normalize tasks here
               sharedWith: listShares.map(s => usersById[s.user_id]).filter(Boolean)
           };
       });
@@ -306,11 +318,11 @@ export function createApiRouter(db) {
           importance: 0, 
           pinned: false, 
           completed: false,
-          created_at: new Date() // Explicitly set created_at from Node if desired, or let DB default
+          created_at: new Date() // Explicitly set created_at from Node
       };
       const [insertedId] = await db('tasks').insert(newTaskData);
       const [newTask] = await db('tasks').where('id', insertedId);
-      res.status(201).json(newTask);
+      res.status(201).json(normalizeTask(newTask)); // Normalize result
   });
   
   // Bulk add tasks for Import feature
@@ -377,7 +389,7 @@ export function createApiRouter(db) {
     Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
     await db('tasks').where('id', taskId).update(updatePayload);
     const [updatedTask] = await db('tasks').where('id', taskId);
-    res.json(updatedTask);
+    res.json(normalizeTask(updatedTask)); // Normalize result
   });
 
   router.delete('/tasks/:taskId', authenticate, async (req, res) => {

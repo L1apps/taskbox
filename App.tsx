@@ -404,8 +404,8 @@ const App: React.FC = () => {
           
           { !loading && !error && (
             <>
-               {/* Tabs Sidebar - Fixed width on Left */}
-               <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 shrink-0 bg-gray-50 dark:bg-gray-900/50">
+               {/* Tabs Sidebar - Transparent, Dynamic Sizing */}
+               <div className="w-full md:w-auto md:min-w-[200px] md:max-w-[320px] border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 shrink-0 bg-transparent">
                   <TaskListTabs
                     lists={lists}
                     activeListId={activeListId}

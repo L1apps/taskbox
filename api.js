@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-that-should-be-in-an-env-file';
-const SESSION_TIMEOUT = process.env.SESSION_TIMEOUT || '7d';
+const DEFAULT_SESSION_TIMEOUT = process.env.SESSION_TIMEOUT || '7d';
 const SALT_ROUNDS = 10;
 
 // --- Utility Functions ---
@@ -29,7 +29,7 @@ const authMiddleware = (db) => async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        const [user] = await db('users').where('id', decoded.userId).select('id', 'username', 'role');
+        const [user] = await db('users').where('id', decoded.userId).select('id', 'username', 'role', 'session_timeout');
         if (!user) {
             return res.status(401).json({ message: 'User not found.' });
         }
@@ -80,7 +80,7 @@ export function createApiRouter(db) {
 
       logActivity(db, 'INFO', `Initial admin user '${username}' created.`);
 
-      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: SESSION_TIMEOUT });
+      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: DEFAULT_SESSION_TIMEOUT });
       res.status(201).json({ token, user: { id: userId, username, role } });
   });
 
@@ -88,9 +88,20 @@ export function createApiRouter(db) {
       const { username, password } = req.body;
       const [user] = await db('users').where('username', username);
       if (user && await bcrypt.compare(password, user.password_hash)) {
-          const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: SESSION_TIMEOUT });
+          // Use user preference or default
+          const timeout = user.session_timeout || DEFAULT_SESSION_TIMEOUT;
+          const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: timeout });
+          
           logActivity(db, 'INFO', `User '${username}' logged in successfully.`);
-          res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+          res.json({ 
+              token, 
+              user: { 
+                  id: user.id, 
+                  username: user.username, 
+                  role: user.role, 
+                  sessionTimeout: user.session_timeout 
+              } 
+          });
       } else {
           logActivity(db, 'WARN', `Failed login attempt for user '${username}'.`);
           res.status(401).json({ message: 'Invalid credentials.' });
@@ -99,12 +110,17 @@ export function createApiRouter(db) {
 
   // --- Protected Routes ---
   router.get('/users/me', authenticate, (req, res) => {
-      res.json(req.user);
+      res.json({ 
+          id: req.user.id, 
+          username: req.user.username, 
+          role: req.user.role, 
+          sessionTimeout: req.user.session_timeout 
+      });
   });
   
   // Update User Credentials (Self)
   router.put('/users/me', authenticate, async (req, res) => {
-      const { username, password, currentPassword } = req.body;
+      const { username, password, currentPassword, sessionTimeout } = req.body;
       
       // Verify current password
       const [currentUser] = await db('users').where('id', req.user.id);
@@ -122,14 +138,22 @@ export function createApiRouter(db) {
           if (password.length < 6) return res.status(400).json({ message: 'New password must be at least 6 characters.' });
           updateData.password_hash = await bcrypt.hash(password, SALT_ROUNDS);
       }
+      if (sessionTimeout !== undefined) {
+          updateData.session_timeout = sessionTimeout;
+      }
 
       if (Object.keys(updateData).length > 0) {
           await db('users').where('id', req.user.id).update(updateData);
           logActivity(db, 'INFO', `User '${currentUser.username}' updated their profile.`);
       }
       
-      const [updatedUser] = await db('users').where('id', req.user.id).select('id', 'username', 'role');
-      res.json(updatedUser);
+      const [updatedUser] = await db('users').where('id', req.user.id).select('id', 'username', 'role', 'session_timeout');
+      res.json({
+          id: updatedUser.id,
+          username: updatedUser.username,
+          role: updatedUser.role,
+          sessionTimeout: updatedUser.session_timeout
+      });
   });
   
   router.get('/users', authenticate, async (req, res) => {

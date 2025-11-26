@@ -29,6 +29,7 @@ async function initializeDatabase() {
         table.string('username').unique().notNullable();
         table.string('password_hash').notNullable();
         table.string('role').defaultTo('USER'); // ADMIN or USER
+        table.string('session_timeout');
       });
     } else {
         const hasRoleColumn = await db.schema.hasColumn('users', 'role');
@@ -37,6 +38,13 @@ async function initializeDatabase() {
             await db.schema.alterTable('users', (table) => {
                 table.string('role').defaultTo('USER');
             });
+        }
+        const hasSessionTimeout = await db.schema.hasColumn('users', 'session_timeout');
+        if (!hasSessionTimeout) {
+             console.log("Migrating 'users' table to add 'session_timeout' column...");
+             await db.schema.alterTable('users', (table) => {
+                 table.string('session_timeout');
+             });
         }
     }
     

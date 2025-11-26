@@ -3,6 +3,14 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [2.5.2] - 2025-05-30
+### Added
+- **User Settings:** Added a "Session Timeout" setting, allowing users to override the global logout timer with their own preference (e.g., 30m, 1d, 30d).
+
+### Changed
+- **Layout (Sidebar):** Made the list sidebar transparent to blend with the theme background. It is now dynamically sized based on list names (with min/max limits) to save screen space.
+- **UI (Task Item):** Styled the "Created Date" field to match the "Due Date" input box (gray background, rounded corners) for a consistent read-only look.
+
 ## [2.5.1] - 2025-05-29
 ### Changed
 - **Layout:** Moved List Tabs back to the left side.

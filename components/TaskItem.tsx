@@ -95,7 +95,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
   const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const borderFocusColor = isOrange ? 'border-orange-500' : 'border-blue-500';
   const inputTextColor = isOrange ? 'text-gray-900' : '';
-  const readOnlyTextColor = isOrange ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400';
+  const readOnlyTextColor = isOrange ? 'text-gray-900' : 'text-gray-900 dark:text-gray-100'; // High contrast
   
   const availableDependencies = allTasksInList.filter(t => t.id !== task.id && !t.pinned);
 
@@ -171,8 +171,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             </div>
         </div>
         
-        {/* Date Created (Read Only) */}
-        <div className={`text-xs w-24 text-center border border-transparent ${readOnlyTextColor}`} title={`Created: ${task.createdAt ? new Date(task.createdAt).toLocaleString() : 'N/A'}`}>
+        {/* Date Created (Read Only - Styled to match input) */}
+        <div className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent w-24 text-center text-xs flex items-center justify-center cursor-default ${readOnlyTextColor}`} title={`Created: ${task.createdAt ? new Date(task.createdAt).toLocaleString() : 'N/A'}`}>
             {createdDate}
         </div>
 

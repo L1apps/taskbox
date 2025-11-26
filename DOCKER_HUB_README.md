@@ -16,7 +16,7 @@ TaskBox is a powerful and intuitive to-do list application that you can host on 
 ### Features:
 
 *   **Multi-User Support & Sharing:** Secure user registration and login, with the ability to share lists with other users.
-*   **User Account Settings:** Users can manage their own credentials.
+*   **User Account Settings:** Users can manage their own credentials and session timeout.
 *   **Import Tasks:** Easily import tasks from CSV or TXT files.
 *   **Pinned Tasks:** Pin your most important tasks to the top of a list.
 *   **3-Level Importance:** Assign a Low, Medium, or High importance level to tasks using colored flags.

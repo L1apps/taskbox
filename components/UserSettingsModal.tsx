@@ -15,6 +15,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose, theme, u
     const [username, setUsername] = useState(user.username);
     const [password, setPassword] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
+    const [sessionTimeout, setSessionTimeout] = useState(user.sessionTimeout || '');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -37,6 +38,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose, theme, u
             const body: any = { currentPassword };
             if (username !== user.username) body.username = username;
             if (password) body.password = password;
+            if (sessionTimeout !== user.sessionTimeout) body.sessionTimeout = sessionTimeout;
 
             const res = await apiFetch('/api/users/me', {
                 method: 'PUT',
@@ -81,6 +83,24 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose, theme, u
                         className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${focusRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
                     />
                 </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Session Timeout</label>
+                    <select
+                        value={sessionTimeout}
+                        onChange={e => setSessionTimeout(e.target.value)}
+                         className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${focusRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
+                    >
+                        <option value="">Default (Server Setting)</option>
+                        <option value="30m">30 Minutes</option>
+                        <option value="1h">1 Hour</option>
+                        <option value="12h">12 Hours</option>
+                        <option value="1d">1 Day</option>
+                        <option value="7d">7 Days</option>
+                        <option value="30d">30 Days</option>
+                    </select>
+                     <p className="text-xs text-gray-500 mt-1">Changes take effect on next login.</p>
+                </div>
+
                 <div className="pt-4 border-t dark:border-gray-700">
                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Password (Required)</label>
                     <input 

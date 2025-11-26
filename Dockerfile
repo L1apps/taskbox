@@ -4,6 +4,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Install build tools for native dependencies (like bcrypt) in the builder stage too
+RUN apk add --no-cache python3 make g++
+
 # Copy package.json AND package-lock.json (if available).
 # Using package*.json ensures it works even if package-lock.json is missing locally.
 COPY package*.json ./

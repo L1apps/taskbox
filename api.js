@@ -339,7 +339,7 @@ export function createApiRouter(db) {
           importance: t.importance || 0,
           list_id: req.params.listId,
           pinned: false,
-          created_at: new Date()
+          created_at: t.createdAt ? new Date(t.createdAt) : new Date()
       }));
 
       try {

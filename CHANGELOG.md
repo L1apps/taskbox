@@ -3,6 +3,15 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [2.5.5] - 2025-06-04
+### Fixed
+- **CSV Export:** Fixed an issue where the "Date Created" field in exported CSV files was displaying raw ISO strings or error values. It now exports as a clean `YYYY-MM-DD` format compatible with Excel.
+
+## [2.5.4] - 2025-06-03
+### Added
+- **Import:** The CSV/TXT importer now supports a `Date Created` (or `CreatedAt`) column, allowing users to preserve task history during migration.
+- **Documentation:** Updated the import example in the "About" modal to reflect the support for `Date Created`.
+
 ## [2.5.3] - 2025-06-01
 ### Fixed
 - **Task Created Date:** Fixed an issue where the creation date of tasks was displayed as "N/A" by ensuring proper data normalization from the database.

@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 2.5.3
+**Version:** 2.5.5
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -121,7 +121,9 @@ docker exec -it taskbox node reset_admin.js admin MyNewSecurePass123!
 
 For a detailed list of changes for every version, please see the [CHANGELOG.md](CHANGELOG.md).
 
-*   **v2.5.3 (Current):** Fixed Date Created display ("N/A") and formatting.
+*   **v2.5.5 (Current):** Fixed Date Created formatting in CSV exports.
+*   **v2.5.4:** Import now supports "Date Created" history preservation.
+*   **v2.5.3:** Fixed Date Created display ("N/A") and formatting.
 *   **v2.5.2:** User Session Timeout Setting, UI Improvements (Sidebar, Date Styling).
 *   **v2.5.1:** Layout fixes, List control relocation.
 *   **v2.5.0:** User Settings, Date Created, Configurable Logout, Layout Updates.

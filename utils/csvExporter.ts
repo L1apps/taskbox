@@ -10,12 +10,25 @@ export const exportTasksToCSV = (tasks: Task[], filename: string) => {
   const headers = ['ID', 'Description', 'Completed', 'Date Created', 'Due Date', 'Importance'];
   const csvRows = [headers.join(',')];
 
+  // Helper to format ISO date to YYYY-MM-DD for better Excel compatibility
+  const formatDate = (dateString: string | undefined | null) => {
+      if (!dateString) return '';
+      try {
+          const date = new Date(dateString);
+          // Check if date is valid
+          if (isNaN(date.getTime())) return '';
+          return date.toISOString().split('T')[0];
+      } catch (e) {
+          return '';
+      }
+  };
+
   tasks.forEach(task => {
     const row = [
       task.id,
       `"${task.description.replace(/"/g, '""')}"`, // Escape double quotes
       task.completed,
-      task.createdAt || '',
+      formatDate(task.createdAt),
       task.dueDate || '',
       task.importance
     ];

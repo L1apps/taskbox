@@ -1,3 +1,4 @@
+
 import type { Task } from '../types';
 
 // A simple CSV/TXT parser that looks for specific headers.
@@ -19,6 +20,8 @@ export const parseTasksFromFile = (fileContent: string): Partial<Task>[] => {
   const completedIndex = headers.indexOf('completed');
   const dueDateIndex = headers.indexOf('due date');
   const importanceIndex = headers.indexOf('importance');
+  // Support variations of Created Date header
+  const createdAtIndex = headers.findIndex(h => h === 'date created' || h === 'createdat' || h === 'created');
 
   if (descriptionIndex === -1) {
     throw new Error("File must contain a 'description' column header.");
@@ -59,6 +62,14 @@ export const parseTasksFromFile = (fileContent: string): Partial<Task>[] => {
       }
     } else {
         task.dueDate = null; // Default
+    }
+
+    if (createdAtIndex > -1) {
+        const createdValue = values[createdAtIndex]?.trim();
+        // Allow date parsing if valid, otherwise let backend default to now
+        if (createdValue && !isNaN(Date.parse(createdValue))) {
+            task.createdAt = new Date(createdValue).toISOString();
+        }
     }
 
     return task;

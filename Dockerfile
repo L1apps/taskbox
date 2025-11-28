@@ -1,4 +1,3 @@
-
 # Stage 1: Build the React frontend
 # This stage installs all dependencies (including devDependencies) and builds the static frontend assets.
 FROM node:20-alpine AS builder

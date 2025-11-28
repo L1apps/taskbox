@@ -57,7 +57,9 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
       return false;
     }).length;
 
-    const perListStats = lists.map(list => {
+    const perListStats = lists
+      .filter(list => list.tasks && list.tasks.length > 0) // Filter out empty lists or containers
+      .map(list => {
       const listTasks = list.tasks || [];
       const listTotal = listTasks.length;
       const listCompleted = listTasks.filter(t => t.completed).length;
@@ -109,7 +111,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
           </div>
         </div>
         
-        {stats.perListStats.length > 0 && (
+        {stats.perListStats.length > 0 ? (
           <div className="pt-4 border-t dark:border-gray-700">
             <h3 className={`text-lg font-semibold mb-3 ${headerTextColor}`}>Per-List Breakdown</h3>
             <div className="overflow-x-auto">
@@ -141,7 +143,12 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
                 </tbody>
               </table>
             </div>
+            <p className={`text-xs mt-2 italic ${isOrange ? 'text-gray-500' : 'text-gray-400'}`}>* Only lists containing tasks are included in the breakdown.</p>
           </div>
+        ) : (
+            <div className="pt-4 border-t dark:border-gray-700 text-center text-gray-500">
+                <p>No active tasks found in any list.</p>
+            </div>
         )}
       </div>
     </Modal>

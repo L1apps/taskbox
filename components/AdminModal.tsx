@@ -7,6 +7,7 @@ interface AdminModalProps {
   onClose: () => void;
   theme: Theme;
   apiFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  onUpdate: () => void;
 }
 
 const UserManagementTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme: Theme }> = ({ apiFetch, theme }) => {
@@ -211,30 +212,113 @@ const ActivityLogTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme: T
     );
 };
 
+const DatabaseMaintenanceTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme: Theme, onUpdate: () => void }> = ({ apiFetch, onUpdate }) => {
+    const [status, setStatus] = useState('');
+    const [loading, setLoading] = useState(false);
 
-const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
+    const performAction = async (action: 'prune' | 'purge_all' | 'vacuum' | 'reset_defaults') => {
+        if (action === 'purge_all') {
+            if (!window.confirm("CRITICAL WARNING: This will delete ALL lists and tasks for ALL users. Only users and logs will remain. This cannot be undone. Are you sure?")) return;
+        }
+        if (action === 'reset_defaults') {
+            if (!window.confirm("WARNING: This will delete ALL lists and tasks and replace them with the Default Demo Data (Groceries list). Are you sure?")) return;
+        }
+        setLoading(true);
+        setStatus('');
+        try {
+            const res = await apiFetch('/api/admin/maintenance', {
+                method: 'POST',
+                body: JSON.stringify({ action })
+            });
+            const data = await res.json();
+            setStatus(data.message || 'Operation successful.');
+            // Refresh main data after maintenance
+            onUpdate();
+        } catch (e) {
+            setStatus('Operation failed.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const buttonBase = "px-4 py-2 rounded text-sm font-medium text-white shadow-sm disabled:opacity-50";
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h4 className="font-semibold mb-2">Maintenance Tools</h4>
+                <p className="text-sm text-gray-500 mb-4">Perform database optimization and cleanup tasks.</p>
+                
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 border rounded dark:border-gray-700">
+                        <div>
+                            <div className="font-medium">Vacuum Database</div>
+                            <div className="text-xs text-gray-500">Optimizes the SQLite database file to reduce size.</div>
+                        </div>
+                        <button onClick={() => performAction('vacuum')} disabled={loading} className={`${buttonBase} bg-blue-500 hover:bg-blue-600`}>Vacuum</button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded dark:border-gray-700">
+                        <div>
+                            <div className="font-medium">Prune Orphaned Data</div>
+                            <div className="text-xs text-gray-500">Removes tasks that are not linked to any valid list.</div>
+                        </div>
+                        <button onClick={() => performAction('prune')} disabled={loading} className={`${buttonBase} bg-yellow-500 hover:bg-yellow-600`}>Prune</button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+                        <div>
+                            <div className="font-medium text-green-600 dark:text-green-400">Reset to Demo Data</div>
+                            <div className="text-xs text-green-600 dark:text-green-300">Wipes all data and restores the example Groceries list.</div>
+                        </div>
+                        <button onClick={() => performAction('reset_defaults')} disabled={loading} className={`${buttonBase} bg-green-600 hover:bg-green-700`}>Reset</button>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+                        <div>
+                            <div className="font-medium text-red-600 dark:text-red-400">Delete All Data but users</div>
+                            <div className="text-xs text-red-500 dark:text-red-300">This Action is irreversible.</div>
+                        </div>
+                        <button onClick={() => performAction('purge_all')} disabled={loading} className={`${buttonBase} bg-red-600 hover:bg-red-700`}>Purge All</button>
+                    </div>
+                </div>
+                {status && <p className="mt-4 text-center font-semibold">{status}</p>}
+            </div>
+        </div>
+    );
+};
+
+
+const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpdate }) => {
+  const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'db'>('users');
+  const isOrange = theme === 'orange';
 
   return (
     <Modal title="Admin Panel" onClose={onClose} theme={theme}>
-      <div className="space-y-4">
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="-mb-px flex space-x-4" aria-label="Tabs">
-            <button onClick={() => setActiveTab('users')} className={`${activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}>
-              User Management
-            </button>
-            <button onClick={() => setActiveTab('logs')} className={`${activeTab === 'logs' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}>
-              Activity Log
-            </button>
-          </nav>
-        </div>
-        
-        <div>
-            {activeTab === 'users' && <UserManagementTab apiFetch={apiFetch} theme={theme} />}
-            {activeTab === 'logs' && <ActivityLogTab apiFetch={apiFetch} theme={theme} />}
-        </div>
-
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+        <button
+          className={`flex-1 py-2 text-sm font-medium ${activeTab === 'users' ? (isOrange ? 'text-orange-500 border-b-2 border-orange-500' : 'text-blue-600 border-b-2 border-blue-500') : 'text-gray-500'}`}
+          onClick={() => setActiveTab('users')}
+        >
+          User Management
+        </button>
+        <button
+          className={`flex-1 py-2 text-sm font-medium ${activeTab === 'logs' ? (isOrange ? 'text-orange-500 border-b-2 border-orange-500' : 'text-blue-600 border-b-2 border-blue-500') : 'text-gray-500'}`}
+          onClick={() => setActiveTab('logs')}
+        >
+          Activity Log
+        </button>
+        <button
+          className={`flex-1 py-2 text-sm font-medium ${activeTab === 'db' ? (isOrange ? 'text-orange-500 border-b-2 border-orange-500' : 'text-blue-600 border-b-2 border-blue-500') : 'text-gray-500'}`}
+          onClick={() => setActiveTab('db')}
+        >
+          Database
+        </button>
       </div>
+
+      {activeTab === 'users' && <UserManagementTab apiFetch={apiFetch} theme={theme} />}
+      {activeTab === 'logs' && <ActivityLogTab apiFetch={apiFetch} theme={theme} />}
+      {activeTab === 'db' && <DatabaseMaintenanceTab apiFetch={apiFetch} theme={theme} onUpdate={onUpdate} />}
     </Modal>
   );
 };

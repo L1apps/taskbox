@@ -3,159 +3,155 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [3.7.4] - 2025-09-01
+### Fixed
+- **Sorting:** Completely refactored list sorting. It now handles null/undefined values safely, preventing glitches where rows jump around. Empty dates are explicitly pushed to the end.
+- **Error Handling:** Adding, moving, renaming, or merging lists no longer crashes the page to an error screen on failure. It now uses simple alerts/popups to keep the user in the context of their work.
+
+### Changed
+- **Warning Modal:** Updated styling to include a backdrop blur and higher Z-index, ensuring it clearly looks like a popup overlaying the application.
+
+## [3.7.3] - 2025-08-25
+### Changed
+- **Statistics:** The "Per-List Breakdown" in the Stats page now strictly excludes lists that have 0 tasks (Master Lists or Empty Lists) to focus on relevant data. Added an explanatory note.
+
+## [3.7.2] - 2025-08-20
+### Added
+- **Paste Feature:** Added a dedicated "Paste" icon and modal to separate text input from file imports.
+- **Warning Popups:** Replaced browser alerts with custom warning modals for better UX when restrictions are hit (e.g., adding tasks to container lists).
+
+### Fixed
+- **Move Logic:** Hidden "Top Level" option in the Move Modal if the list is already at the top level.
+- **Purge Logic:** Disabled the "Purge Completed" button if there are no completed tasks to remove.
+- **Tooltip Alignment:** Fixed "Add Sublist" tooltip clipping by aligning it left.
+
+### Changed
+- **UI:** Updated Sidebar icons. Top Level lists now use a "Stack" icon, while Sublists use a "Document" icon for visual distinction.
+
+## [3.7.1] - 2025-08-15
+### Fixed
+- **Add Task Popup:** Fixed "Add Task" behavior for lists with sublists. Instead of a disabled screen, clicking "Add Task" now shows a clear alert popup.
+- **Tooltip Layering:** Increased Z-Index of the Sidebar Toolbar to ensure tooltips render on top of the list container.
+
+## [3.7.0] - 2025-08-10
+### Fixed
+- **Priority Sorting:** Fixed toggle logic for Importance sorting. Now correctly toggles between Ascending and Descending.
+- **Tooltip Clipping:** Sidebar action tooltips now appear *above* the icons (`position="top"`), preventing them from being hidden by the list view below.
+- **Left Edge Clipping:** The "Check/Uncheck All" tooltip is now left-aligned to prevent being cut off by the screen edge.
+
+### Changed
+- **Versioning:** Centralized version number. Now displayed as v3.7.0 in the Header and About modal.
+- **Links:** Updated Header icons to point to specific `taskbox` repositories on GitHub and Docker Hub.
+
+## [3.6.0] - 2025-08-05
+### Fixed
+- **Ghost Data:** Enabled SQLite foreign key enforcement (`PRAGMA foreign_keys = ON`). Now, deleting a parent list automatically deletes all sublists and tasks within it, preventing orphaned records.
+- **Tooltip Clipping:** Added `z-index` to the sidebar container to ensure action tooltips appear above the main task view.
+
+### Changed
+- **UI:** Updated the delete confirmation message to explicitly warn about deleting sublists.
+- **Admin Panel:** Updated maintenance text to "Delete All Data but users" and "This Action is irreversible" for clarity.
+
+## [3.5.0] - 2025-08-01
+### Added
+- **Sidebar Toolbar:** Added a context-aware toolbar at the top of the sidebar for list actions (Rename, Share, Move, Merge, Delete).
+- **Admin Refresh:** Database maintenance actions (Prune, Reset) now immediately refresh the application data.
+
+### Changed
+- **UI Overhaul:** Removed inline hover buttons from the list tree for a cleaner look. Moved all list actions to the new toolbar.
+- **Add List:** Removed the unused "Description" field from the creation modal.
+
+## [3.4.0] - 2025-07-28
+### Added
+- **Example Data:** Automatically seeds a "Groceries" list with example tasks upon initial admin registration.
+- **Reset to Defaults:** Added a button in the Admin Maintenance tab to wipe all data and restore the example "Groceries" list.
+
+## [3.3.0] - 2025-07-20
+### Added
+- **Renaming:** Added ability to rename lists and sublists via a new sidebar icon.
+- **Admin Maintenance:** Added a "Database" tab to the Admin Panel with tools to Prune orphans, Purge all data, and Vacuum the database.
+- **UI:** Sidebar overhaul. Removed list descriptions and "tab-like" borders for a cleaner look. Fixed tooltip overlapping issues.
+
+### Changed
+- **Hierarchy Logic:** Renamed "Root" to "Top Level".
+- **Task View:** The task view is now disabled/greyed out if the selected list contains sublists (enforcing strict container vs. task list rules).
+- **Import/Export:** These buttons are now disabled if the active list is a container (has sublists).
+
+## [3.2.0] - 2025-07-10
+### Added
+- **Merge Lists:** New feature to merge one list into another (moves tasks, deletes source).
+- **Hierarchy Rules:** Strict enforcement that a Master List can hold tasks OR sublists (not both).
+- **UI:** Tooltip improvements (prevent overlap) and new Merge icon.
+
+### Changed
+- **Move Logic:** Restricted moving lists. Can only move to Root or to an empty Master List. Cannot move to Sublist (max depth 2).
+
+## [3.1.1] - 2025-07-06
+### Fixed
+- **Build Error:** Resolved TypeScript errors for implicit any types in headers and unused imports.
+
+## [3.1.0] - 2025-07-05
+### Added
+- **Nested Lists:** Replaced "Folders" with a recursive "List inside List" model.
+- **Recursive Sharing:** Sharing a Parent List now automatically shares all its Sublists.
+- **Sidebar Controls:** Share, Delete, and Move actions are now available directly on sidebar items.
+
+### Changed
+- **Architecture:** Deprecated `folders` table. Migrated data to `lists` table using `parent_id`.
+- **UI:** Removed resizing from sidebar (fixed width).
+- **UI:** Moved Bulk Toggle button to left of search bar.
+- **Rules:** Enforced rule that a list can contain tasks OR sublists, but not both.
+
+## [3.0.0] - 2025-07-01
+### Added
+- **Folder Structure:** Lists can now be organized into collapsible Folders.
+- **Tree View:** The sidebar now displays a hierarchical tree of folders and lists.
+- **Duplicate Checker:** Real-time checking of task descriptions.
+- **Move List:** Added functionality to move lists.
+
+### Changed
+- **UI:** Removed the "Add List" button from the main header.
+- **Layout:** Major refactor of the left sidebar.
+
 ## [2.9.1] - 2025-06-27
 ### Fixed
-- **Sorting:** Fixed a crash (white screen) when sorting by "Date Created" if the backend returned invalid date data.
-- **Tooltips:** Fixed tooltip clipping for items on the screen edges (Checkbox/Pin) by implementing left/right alignment.
-- **Copy Description:** Fixed a bug where clicking the copy button would also trigger "Edit Mode" for the task.
-- **Sidebar:** Improved sidebar resizing reliability by using direct React event handlers.
+- **Sorting:** Fixed a crash when sorting by "Date Created".
+- **Tooltips:** Fixed tooltip clipping.
+- **Copy Description:** Fixed edit mode bug.
 
 ## [2.9.0] - 2025-06-25
 ### Added
-- **Header:** Added version number display next to the application title.
-- **Copy Description:** Improved the copy-to-clipboard functionality. Now uses a robust fallback method (execCommand) to ensure it works in non-secure contexts (HTTP) like local Docker deployments.
+- **Header:** Added version number display.
+- **Copy Description:** Improved copy-to-clipboard reliability.
 
 ## [2.8.0] - 2025-06-20
 ### Added
-- **Sort Arrows:** Added missing sort indicators for "Status" and "Dependency" columns.
-- **Dependency Sorting:** Implemented sorting logic for the Dependency column.
-- **Resizer:** Made the sidebar resize handle larger and more visible on hover to improve usability.
-
-### Changed
-- **UI:** Renamed "Dependency" dropdown option to "None" in task item.
-- **Import:** Changed default importance for unstructured text imports to 0 (Low) instead of 1 (Medium).
+- **Sort Arrows:** Added missing sort indicators.
+- **Dependency Sorting:** Implemented sorting logic for Dependency.
 
 ## [2.7.0] - 2025-06-15
 ### Added
-- **Admin Logs:** Added ability for admins to clear the activity log.
-- **Layout:** Improved sidebar resizing smoothness and text selection handling.
-- **Layout:** Increased header spacing in list view for better sorting icon visibility.
-- **Task View:** Added text wrapping for long task descriptions.
-
-### Changed
-- **Import:** Improved logic for pasting text. If no headers are detected, it treats input as a simple list even if commas are present. Defaults importance to 'Low' (0).
-- **Export:** Refined CSV quoting logic to only quote fields when necessary. Renamed "Tab (Unknown)" to "Tab".
+- **Admin Logs:** Ability to clear activity logs.
+- **Layout:** Text wrapping for long tasks.
 
 ## [2.6.0] - 2025-06-10
 ### Added
-- **Resizable Sidebar:** The list sidebar is now user-resizable via a drag handle.
-- **Interactive Headers:** List sorting is now controlled by clicking column headers instead of a dropdown.
-- **Advanced Import:** New Import Modal supports File Upload OR Paste Text. Handles raw text lists (descriptions only) or structured CSV.
-- **Advanced Export:** New Export Modal supports choosing between CSV/TXT, setting delimiters (comma/tab), and selecting specific fields.
-- **Bulk Toggle:** Added a "Check/Uncheck All" button to the task list view.
-- **Copy Description:** Added a button to copy individual task descriptions to the clipboard.
-- **Tooltips:** Added tooltips to all task item controls (Trash, Checkbox, Date, Dependency).
-
-## [2.5.5] - 2025-06-04
-### Fixed
-- **CSV Export:** Fixed an issue where the "Date Created" field in exported CSV files was displaying raw ISO strings or error values. It now exports as a clean `YYYY-MM-DD` format compatible with Excel.
-
-## [2.5.4] - 2025-06-03
-### Added
-- **Import:** The CSV/TXT importer now supports a `Date Created` (or `CreatedAt`) column, allowing users to preserve task history during migration.
-- **Documentation:** Updated the import example in the "About" modal to reflect the support for `Date Created`.
-
-## [2.5.3] - 2025-06-01
-### Fixed
-- **Task Created Date:** Fixed an issue where the creation date of tasks was displayed as "N/A" by ensuring proper data normalization from the database.
-- **Date Formatting:** Forced the task creation date to display in `mm/dd/yyyy` format.
-
-## [2.5.2] - 2025-05-30
-### Added
-- **User Settings:** Added a "Session Timeout" setting, allowing users to override the global logout timer with their own preference (e.g., 30m, 1d, 30d).
-
-### Changed
-- **Layout (Sidebar):** Made the list sidebar transparent to blend with the theme background. It is now dynamically sized based on list names (with min/max limits) to save screen space.
-- **UI (Task Item):** Styled the "Created Date" field to match the "Due Date" input box (gray background, rounded corners) for a consistent read-only look.
-
-## [2.5.1] - 2025-05-29
-### Changed
-- **Layout:** Moved List Tabs back to the left side.
-- **UI:** Moved List Settings and Delete List controls from individual tabs to the main task list header.
-- **UI:** Improved styling for the list header area.
+- **Resizable Sidebar:** User-resizable list sidebar.
+- **Interactive Headers:** Clickable column headers.
+- **Advanced Import/Export:** New modals for data handling.
 
 ## [2.5.0] - 2025-05-28
 ### Added
-- **User Account Settings:** Users can now change their own username and password via a new settings gear icon.
-- **Date Created:** Tasks now automatically track their creation date.
-- **Sorting:** Added "Sort by Date Created" options.
-- **Configurable Session:** The session timeout (logout time) is now adjustable via the `SESSION_TIMEOUT` environment variable.
-- **UI:** Added a descriptive header row above the task list for better column identification.
-
-### Changed
-- **Layout:** Moved List Tabs to a vertical sidebar on the right side of the screen.
-- **UI:** Replaced the "X" delete button on list tabs with a Trash Can icon.
-- **UI:** Task items now display the "Created" date next to the "Due Date".
-
-## [2.4.0] - 2025-05-25
-### Added
-- **Admin Password Reset:** Admins can now reset passwords for other users directly from the Admin Panel.
-- **Emergency Recovery:** Added a CLI script (`reset_admin.js`) to reset the admin password via Docker if lost.
-
-### Fixed
-- **UI:** Fixed text visibility issues in the Statistics modal when using the Orange theme (text was too dark on dark backgrounds).
-- **UI:** Resolved tooltip clipping on list tabs by switching from a scrolling layout to a wrapping layout.
-
-## [2.3.2] - 2025-05-22
-### Fixed
-- **UI:** Fixed an issue where tooltips on list tabs were appearing underneath the main content area by adjusting Z-index layers.
-- **UI:** Fixed clipping of tooltips by replacing `overflow: hidden` with a CSS-based scrollbar hiding technique.
-
-## [2.3.1] - 2025-05-21
-### Fixed
-- **Bug:** Fixed a synchronization issue where deleting a task did not clear dependencies on other tasks, causing errors when subsequently updating them.
-
-## [2.3.0] - 2025-05-20
-### Added
-- **Tabbed Interface:** Replaced the scrolling list of projects with a proper folder-tab style interface for better navigation.
-- **High Contrast Orange Theme:** Optimized the Orange/Black theme. Input fields, dropdowns, and the Admin Panel now use black text on light backgrounds to ensure readability.
-
-### Changed
-- **Icons:** 
-    - Updated the "Pin" icon to a clear, vertical push-pin style.
-    - Updated the "Importance" icon to a clearer waving flag.
-- **UX:** Renamed the "No Dependency" option in task dropdowns to simply "Dependency" for a cleaner look.
-- **Layout:** Removed the redundant title header from the Task List view to save vertical space.
-
-## [2.2.0] - 2025-05-18
-### Added
-- **Import Tasks:** Full support for bulk importing tasks from `.csv` or `.txt` files.
-- **Security:** Added explicit instructions and examples for setting the `JWT_SECRET` environment variable.
-- **Session Management:** Implemented automatic logout and redirection when the user session (JWT) expires.
-
-## [2.1.0] - 2025-05-15
-### Added
-- **Admin Panel:** A dedicated interface for the Administrator (first registered user).
-- **User Management:** Admins can now create new users and delete existing users (cascading delete for their lists).
-- **Activity Log:** A security log tracking logins, failed attempts, and administrative actions.
-- **Log Rotation:** Automatic cleanup of activity logs older than 30 days.
-
-### Changed
-- **Performance:** Optimized frontend state management to prevent full re-fetches on every action.
-- **API:** Added `adminOnly` middleware protection to specific routes.
-
-### Fixed
-- Fixed a broken SVG path for the light-theme icon in the header.
+- **User Account Settings:** Change username/password.
+- **Date Created:** Tracks creation date.
+- **UI:** Trash Icon, Right Sidebar (later reverted), Header Row.
 
 ## [2.0.0] - 2025-05-10
 ### Added
-- **Multi-User Architecture:** Complete overhaul to support username/password authentication (bcrypt).
-- **List Sharing:** List owners can now share lists with specific users for real-time collaboration.
-- **Pinned Tasks:** Tasks can be pinned to stick to the top of the list.
-- **Importance Flags:** Replaced 5-star rating with 3-level colored flags (Low, Medium, High).
-- **Purge Completed:** One-click button to remove all completed tasks from a list.
-- **Task Dependencies:** Ability to make a task dependent on another task within the same list.
-
-### Changed
-- **Task Layout:** Reordered task item controls for better workflow (Check -> Pin -> Flag -> Desc -> Dep -> Date -> Delete).
-- **Database:** Schema migration to add `users`, `list_shares`, and updated `tasks`/`lists` tables.
-
-## [1.1.0] - 2025-05-01
-### Added
-- **Statistics:** A new modal displaying overall completion rates, total tasks, and per-list breakdown.
+- **Multi-User:** Authentication system.
+- **List Sharing:** Collaborate on lists.
+- **Pinned Tasks:** Pin tasks to top.
 
 ## [1.0.0] - 2025-04-20
 ### Initial Release
-- Core features: Multiple lists, Task CRUD, Local SQLite database.
-- Themes: Light, Dark, Orange.
-- Docker: Full containerization with Node.js/Express backend.
+- Core features: Multiple lists, Task CRUD, SQLite, Docker.

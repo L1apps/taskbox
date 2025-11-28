@@ -21,7 +21,9 @@ export interface TaskList {
   id: number;
   title: string;
   description: string;
+  parentId: number | null; // Replaces folderId
   tasks: Task[];
+  children?: TaskListWithUsers[]; // For nested structure
 }
 
 export interface TaskListWithUsers extends TaskList {
@@ -41,7 +43,8 @@ export enum SortOption {
     CREATED_DATE_DESC = 'created_date_desc',
     COMPLETED_ASC = 'completed_asc',
     COMPLETED_DESC = 'completed_desc',
-    IMPORTANCE = 'importance',
+    IMPORTANCE_ASC = 'importance_asc',
+    IMPORTANCE_DESC = 'importance_desc',
     DEPENDENCY_ASC = 'dependency_asc',
     DEPENDENCY_DESC = 'dependency_desc',
 }

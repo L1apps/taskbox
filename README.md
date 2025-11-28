@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 2.9.1
+**Version:** 3.7.4
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -10,54 +10,17 @@
 
 ---
 
-### Short Description
+## Overview
 
-TaskBox is a standalone, feature-rich task management application designed for individuals and teams. It includes multi-user support with admin controls, list sharing, activity logging, and enhanced task organization features, all packaged in a secure, self-hosted Docker container.
-
-### Long Description
-
-TaskBox is a powerful and intuitive to-do list application that you can host on your own server. It provides a clean, modern interface for managing multiple task lists, from a simple shopping list to complex project tasks. With full multi-user support, you can create accounts for your family or team and share lists for seamless collaboration. The new Admin Panel allows the administrator to manage users and view a security activity log. The application features a persistent SQLite database backend, ensuring your data is always saved and available. With features like task pinning, 3-level importance flags, due dates, dependencies, and a new purge function, TaskBox is the perfect tool to boost your productivity.
-
----
-
-## Features
-
-*   **Multi-User Support:** Secure user registration and login system.
-*   **User Settings:** Change username, password, and customize session timeout duration.
-*   **Admin Panel & User Management:** The first user becomes the admin, with the ability to create, delete, and reset passwords for other users.
-*   **Activity Logging:** Admins can view a log of important security events like logins and user management actions. Now includes "Clear Logs" function.
-*   **Shared Lists:** List owners can share their lists with other users for collaboration.
-*   **Advanced Import:** Import tasks from CSV or Paste Text (supports raw lists or structured data).
-*   **Advanced Export:** Export lists to CSV or Text with custom delimiters and field selection.
-*   **Pinned Tasks:** Pin your most important tasks to the top of a list for easy access.
-*   **3-Level Importance:** Assign a Low, Medium, or High importance level to tasks using colored flags.
-*   **Date Created:** Automatically tracks when tasks were created.
-*   **Purge Completed Tasks:** Clean up your lists by removing all completed tasks with a single click.
-*   **Bulk Selection:** Toggle check/uncheck all tasks in a view.
-*   **Task Dependencies:** Set prerequisites for tasks within the same list.
-*   **Sorting Headers:** Clickable column headers to sort by Priority, Status, Dependency, Created Date, Due Date, etc.
-*   **Statistics Page:** View detailed statistics about your tasks, including overall and per-list completion rates.
-*   **Custom Themes:** Switch between Light, Dark, and a special Orange/Black theme (High Contrast).
-*   **Resizable Sidebar:** Drag to resize the list panel width.
-
----
-
-## Tech Stack
-
-*   **Frontend:** React, Tailwind CSS
-*   **Backend:** Node.js, Express.js with JWT for authentication.
-*   **Database:** SQLite
-*   **Containerization:** Docker, Docker Compose
+**TaskBox** is a standalone, feature-rich task management application designed for individuals and teams. It supports nested lists (sublists), multi-user collaboration, list sharing, admin controls, and extensive task organization features like dependencies and pinning, all in a secure, self-hosted Docker container.
 
 ---
 
 ## Installation
 
-The recommended method for installation is using Docker Compose.
+### 1. Docker Compose (Recommended)
 
-### Important: Set Your Security Key
-
-For security, you must generate a strong random string for your `JWT_SECRET`. You can generate one using `openssl rand -hex 32` or any password generator. Replace `your-super-secret-key...` below with your generated key.
+This is the standard method for most users.
 
 1.  **Create a directory for TaskBox:**
     
@@ -66,7 +29,7 @@ For security, you must generate a strong random string for your `JWT_SECRET`. Yo
     cd taskbox
     ```
 
-2.  **Download the `docker-compose.yml` file:**
+2.  **Create the `docker-compose.yml` file:**
     Save the following content as `docker-compose.yml` in your `taskbox` directory.
     
     ```yaml
@@ -96,42 +59,88 @@ For security, you must generate a strong random string for your `JWT_SECRET`. Yo
     docker-compose up -d
     ```
 
-4.  **Access TaskBox & Initial Setup:**
-    Open your web browser and navigate to `http://<your-server-ip>:6500`. On the first run, you will be prompted to create the first administrator account. After that, the application will switch to multi-user mode and present a login screen.
+4.  **Access TaskBox:**
+    Open your web browser and navigate to `http://<your-server-ip>:6500`.
+
+### 2. Portainer Stacks
+
+If you use Portainer, you can deploy TaskBox easily using the "Stacks" feature.
+
+1.  **Log in** to your Portainer instance.
+2.  Navigate to **Stacks** and click **+ Add stack**.
+3.  **Name:** Enter `taskbox`.
+4.  **Build method:** Select **Web editor**.
+5.  **Configuration:** Paste the YAML content from the **Docker Compose** section above into the editor.
+    *   *Note:* You may want to change the volume to a named volume (e.g., `taskbox_data:/app/data`) if you prefer Portainer to manage storage.
+6.  Click **Deploy the stack**.
+
+---
+
+## Features
+
+*   **Sidebar Toolbar:** Centralized control for list actions (Rename, Share, Move, Merge, Delete).
+*   **Demo Data:** Auto-generates example list on install. Admin can "Reset to Defaults".
+*   **Nested Lists:** Hierarchical structure (Top Level -> Master List -> Sublist).
+*   **Merge Lists:** Consolidate lists by merging them together.
+*   **Renaming:** Rename any list or sublist easily.
+*   **Recursive Sharing:** Sharing a Parent List automatically grants access to all its sublists.
+*   **Multi-User Support:** Secure user registration and login system.
+*   **User Settings:** Change username, password, and session timeout.
+*   **Admin Panel:** Create/Delete users, reset passwords, and view/clear security logs.
+*   **Database Maintenance:** Prune orphans, Purge all data, and Vacuum database.
+*   **Duplicate Checker:** Real-time warning if a task description already exists.
+*   **Pinned Tasks:** Pin important tasks to the top.
+*   **3-Level Importance:** Low, Medium, High importance flags.
+*   **Task Dependencies:** Set prerequisites for tasks.
+*   **Advanced Import/Export:** Support for CSV and Text files with custom delimiters.
+*   **Paste Feature:** Quickly paste text lists directly into TaskBox.
+*   **Purge Completed:** Quickly remove completed tasks.
+*   **Bulk Actions:** Toggle check/uncheck all tasks.
+*   **Statistics Page:** View completion rates and overdue tasks.
+*   **Custom Themes:** Light, Dark, and High-Contrast Orange/Black.
+*   **Emergency Recovery:** CLI script to reset lost admin passwords.
+
+---
+
+## Tech Stack
+
+*   **Frontend:** React, Tailwind CSS
+*   **Backend:** Node.js, Express.js with JWT
+*   **Database:** SQLite
+*   **Containerization:** Docker (Alpine Linux base)
 
 ---
 
 ## Recovering Lost Admin Password
 
-If you lose the admin password, you can reset it by running a special script inside the Docker container.
+If you lose access to the admin account, you can reset the password directly via the container CLI:
 
 1.  Open a terminal on your host machine.
-2.  Run the following command (replace `<admin_username>` and `<new_password>` with your actual values):
+2.  Run the following command:
 
 ```bash
 docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
-```
-
-Example:
-```bash
-docker exec -it taskbox node reset_admin.js admin MyNewSecurePass123!
 ```
 
 ---
 
 ## Version History
 
-For a detailed list of changes for every version, please see the [CHANGELOG.md](CHANGELOG.md).
+See [CHANGELOG.md](CHANGELOG.md) for full details.
 
-*   **v2.9.1 (Current):** Fixed sorting crashes, tooltip clipping, copy description bugs, and sidebar resizing.
-*   **v2.9.0:** Added version number to header, improved copy-paste reliability.
-*   **v2.8.0:** Sorting improvements, Dependency sort, UI Tweaks.
-*   **v2.7.0:** Layout improvements, Clear Logs, Smarter Import/Export logic.
-*   **v2.6.0:** Resizable sidebar, Advanced Import/Export, Clickable Headers, Bulk Toggle.
-*   **v2.5.5:** Fixed CSV Export date format.
-*   **v2.5.0:** User Settings, Date Created, Configurable Logout.
-*   **v2.4.0:** Admin Password Reset.
-*   **v2.0.0:** Multi-user, Sharing, Pins.
+*   **v3.7.4:** Robust sorting logic, error handling improvements, better popup styling.
+*   **v3.7.3:** Statistics breakdown logic improvement, UI Polishing.
+*   **v3.7.2:** Separate Paste feature, Custom Warning Modals, UI Polishing.
+*   **v3.7.1:** Add Task Popup for sublists, Tooltip z-index layering fix.
+*   **v3.7.0:** Priority sorting fixes, tooltip improvements, link updates.
+*   **v3.6.0:** Database integrity fixes, Tooltip visibility, Text updates.
+*   **v3.5.0:** Sidebar Toolbar (New UX), Admin Refresh logic, UI Cleanup.
+*   **v3.4.0:** Demo Data Seeding, Reset to Defaults.
+*   **v3.3.0:** Renaming Lists, Admin Maintenance Tools (Prune/Purge/Vacuum), Sidebar UI Overhaul.
+*   **v3.2.0:** Merge functionality, Strict Hierarchy Rules.
+*   **v3.1.0:** Nested Lists (Sublists), Recursive Sharing.
+*   **v3.0.0:** Folder structure, Duplicate Checker.
+*   **v2.x:** Admin Panel, Multi-User, Import/Export tools.
 *   **v1.0.0:** Initial Release.
 
 ---

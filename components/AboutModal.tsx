@@ -2,6 +2,7 @@
 import React from 'react';
 import Modal from './Modal';
 import { Theme } from '../types';
+import { APP_VERSION } from '../version';
 
 interface AboutModalProps {
   onClose: () => void;
@@ -10,13 +11,12 @@ interface AboutModalProps {
 
 const AboutModal: React.FC<AboutModalProps> = ({ onClose, theme }) => {
   const isOrange = theme === 'orange';
-  const version = "2.9.1"; 
 
   return (
     <Modal title="About TaskBox" onClose={onClose} theme={theme}>
       <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-          TaskBox <span className="text-base font-normal text-gray-500 dark:text-gray-400">v{version}</span>
+          TaskBox <span className="text-base font-normal text-gray-500 dark:text-gray-400">v{APP_VERSION}</span>
         </h3>
         <p>TaskBox is a standalone, feature-rich task management application designed to organize your to-do lists efficiently.</p>
         

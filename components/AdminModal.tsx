@@ -156,27 +156,46 @@ const UserManagementTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme
 const ActivityLogTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme: Theme }> = ({ apiFetch, theme }) => {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    const fetchLogs = async () => {
+        try {
+            const res = await apiFetch('/api/admin/logs');
+            const data = await res.json();
+            setLogs(data);
+        } catch (e) {
+            setError("Failed to fetch activity logs.");
+        }
+    };
 
     useEffect(() => {
-        const fetchLogs = async () => {
-            try {
-                const res = await apiFetch('/api/admin/logs');
-                const data = await res.json();
-                setLogs(data);
-            } catch (e) {
-                setError("Failed to fetch activity logs.");
-            }
-        };
         fetchLogs();
     }, [apiFetch]);
     
+    const handleClearLogs = async () => {
+        if (!window.confirm("Are you sure you want to clear all activity logs?")) return;
+        try {
+            const res = await apiFetch('/api/admin/logs', { method: 'DELETE' });
+            if (!res.ok) throw new Error("Failed to clear logs");
+            setSuccess("Logs cleared successfully.");
+            fetchLogs();
+        } catch (e) {
+            setError("Failed to clear logs.");
+        }
+    };
+
     const isOrange = theme === 'orange';
     const listBgColor = isOrange ? 'bg-gray-200' : 'bg-gray-100 dark:bg-gray-700';
     const listTextColor = isOrange ? 'text-gray-900' : '';
 
     return (
         <div>
+            <div className="flex justify-between items-center mb-2">
+                 <h4 className="font-semibold">Security Events</h4>
+                 <button onClick={handleClearLogs} className="text-xs text-red-500 hover:underline border border-red-200 rounded px-2 py-1 hover:bg-red-50">Clear Logs</button>
+            </div>
             {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
+            {success && <p className="text-sm text-green-500 mb-2">{success}</p>}
             <ul className="space-y-2 max-h-96 overflow-y-auto text-sm">
                 {logs.map(log => (
                     <li key={log.id} className={`p-2 rounded-md ${listBgColor} ${listTextColor}`}>

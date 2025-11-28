@@ -3,6 +3,49 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [2.9.1] - 2025-06-27
+### Fixed
+- **Sorting:** Fixed a crash (white screen) when sorting by "Date Created" if the backend returned invalid date data.
+- **Tooltips:** Fixed tooltip clipping for items on the screen edges (Checkbox/Pin) by implementing left/right alignment.
+- **Copy Description:** Fixed a bug where clicking the copy button would also trigger "Edit Mode" for the task.
+- **Sidebar:** Improved sidebar resizing reliability by using direct React event handlers.
+
+## [2.9.0] - 2025-06-25
+### Added
+- **Header:** Added version number display next to the application title.
+- **Copy Description:** Improved the copy-to-clipboard functionality. Now uses a robust fallback method (execCommand) to ensure it works in non-secure contexts (HTTP) like local Docker deployments.
+
+## [2.8.0] - 2025-06-20
+### Added
+- **Sort Arrows:** Added missing sort indicators for "Status" and "Dependency" columns.
+- **Dependency Sorting:** Implemented sorting logic for the Dependency column.
+- **Resizer:** Made the sidebar resize handle larger and more visible on hover to improve usability.
+
+### Changed
+- **UI:** Renamed "Dependency" dropdown option to "None" in task item.
+- **Import:** Changed default importance for unstructured text imports to 0 (Low) instead of 1 (Medium).
+
+## [2.7.0] - 2025-06-15
+### Added
+- **Admin Logs:** Added ability for admins to clear the activity log.
+- **Layout:** Improved sidebar resizing smoothness and text selection handling.
+- **Layout:** Increased header spacing in list view for better sorting icon visibility.
+- **Task View:** Added text wrapping for long task descriptions.
+
+### Changed
+- **Import:** Improved logic for pasting text. If no headers are detected, it treats input as a simple list even if commas are present. Defaults importance to 'Low' (0).
+- **Export:** Refined CSV quoting logic to only quote fields when necessary. Renamed "Tab (Unknown)" to "Tab".
+
+## [2.6.0] - 2025-06-10
+### Added
+- **Resizable Sidebar:** The list sidebar is now user-resizable via a drag handle.
+- **Interactive Headers:** List sorting is now controlled by clicking column headers instead of a dropdown.
+- **Advanced Import:** New Import Modal supports File Upload OR Paste Text. Handles raw text lists (descriptions only) or structured CSV.
+- **Advanced Export:** New Export Modal supports choosing between CSV/TXT, setting delimiters (comma/tab), and selecting specific fields.
+- **Bulk Toggle:** Added a "Check/Uncheck All" button to the task list view.
+- **Copy Description:** Added a button to copy individual task descriptions to the clipboard.
+- **Tooltips:** Added tooltips to all task item controls (Trash, Checkbox, Date, Dependency).
+
 ## [2.5.5] - 2025-06-04
 ### Fixed
 - **CSV Export:** Fixed an issue where the "Date Created" field in exported CSV files was displaying raw ISO strings or error values. It now exports as a clean `YYYY-MM-DD` format compatible with Excel.

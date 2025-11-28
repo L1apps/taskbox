@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 2.5.5
+**Version:** 2.9.1
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -25,18 +25,20 @@ TaskBox is a powerful and intuitive to-do list application that you can host on 
 *   **Multi-User Support:** Secure user registration and login system.
 *   **User Settings:** Change username, password, and customize session timeout duration.
 *   **Admin Panel & User Management:** The first user becomes the admin, with the ability to create, delete, and reset passwords for other users.
-*   **Activity Logging:** Admins can view a log of important security events like logins and user management actions.
+*   **Activity Logging:** Admins can view a log of important security events like logins and user management actions. Now includes "Clear Logs" function.
 *   **Shared Lists:** List owners can share their lists with other users for collaboration.
-*   **Import Tasks from File:** Bulk import tasks from CSV or TXT files.
+*   **Advanced Import:** Import tasks from CSV or Paste Text (supports raw lists or structured data).
+*   **Advanced Export:** Export lists to CSV or Text with custom delimiters and field selection.
 *   **Pinned Tasks:** Pin your most important tasks to the top of a list for easy access.
 *   **3-Level Importance:** Assign a Low, Medium, or High importance level to tasks using colored flags.
 *   **Date Created:** Automatically tracks when tasks were created.
 *   **Purge Completed Tasks:** Clean up your lists by removing all completed tasks with a single click.
+*   **Bulk Selection:** Toggle check/uncheck all tasks in a view.
 *   **Task Dependencies:** Set prerequisites for tasks within the same list.
-*   **Filtering and Sorting:** Quickly find tasks by searching, or sort by importance, description, due date, created date, or completion status.
+*   **Sorting Headers:** Clickable column headers to sort by Priority, Status, Dependency, Created Date, Due Date, etc.
 *   **Statistics Page:** View detailed statistics about your tasks, including overall and per-list completion rates.
 *   **Custom Themes:** Switch between Light, Dark, and a special Orange/Black theme (High Contrast).
-*   **Adjustable Session:** Configurable logout timer per user.
+*   **Resizable Sidebar:** Drag to resize the list panel width.
 
 ---
 
@@ -121,18 +123,15 @@ docker exec -it taskbox node reset_admin.js admin MyNewSecurePass123!
 
 For a detailed list of changes for every version, please see the [CHANGELOG.md](CHANGELOG.md).
 
-*   **v2.5.5 (Current):** Fixed Date Created formatting in CSV exports.
-*   **v2.5.4:** Import now supports "Date Created" history preservation.
-*   **v2.5.3:** Fixed Date Created display ("N/A") and formatting.
-*   **v2.5.2:** User Session Timeout Setting, UI Improvements (Sidebar, Date Styling).
-*   **v2.5.1:** Layout fixes, List control relocation.
-*   **v2.5.0:** User Settings, Date Created, Configurable Logout, Layout Updates.
-*   **v2.4.0:** Admin Password Reset, Emergency Recovery Script, UI/Stats Fixes.
-*   **v2.3.2:** UI/UX fixes (tooltips, dependencies), Security updates.
-*   **v2.3.0:** UI Polish, Orange Theme visibility fixes, Icon updates, Tabbed interface.
-*   **v2.2.0:** Import Tasks, Security Documentation.
-*   **v2.1.0:** Admin Panel, Activity Log.
-*   **v2.0.0:** Multi-user, Sharing, Pins, Flags.
+*   **v2.9.1 (Current):** Fixed sorting crashes, tooltip clipping, copy description bugs, and sidebar resizing.
+*   **v2.9.0:** Added version number to header, improved copy-paste reliability.
+*   **v2.8.0:** Sorting improvements, Dependency sort, UI Tweaks.
+*   **v2.7.0:** Layout improvements, Clear Logs, Smarter Import/Export logic.
+*   **v2.6.0:** Resizable sidebar, Advanced Import/Export, Clickable Headers, Bulk Toggle.
+*   **v2.5.5:** Fixed CSV Export date format.
+*   **v2.5.0:** User Settings, Date Created, Configurable Logout.
+*   **v2.4.0:** Admin Password Reset.
+*   **v2.0.0:** Multi-user, Sharing, Pins.
 *   **v1.0.0:** Initial Release.
 
 ---

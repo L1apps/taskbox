@@ -29,6 +29,7 @@ const Header: React.FC<HeaderProps> = ({ theme, onToggleTheme, onAddList, onImpo
   const iconButtonBase = 'p-2 rounded-full transition';
   const orangeHover = 'hover:bg-gray-800';
   const defaultHover = 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700';
+  const version = "v2.9.1";
 
   return (
     <header className={`${isOrange ? 'bg-black' : 'bg-white dark:bg-gray-800'} shadow-md sticky top-0 z-10`}>
@@ -36,18 +37,21 @@ const Header: React.FC<HeaderProps> = ({ theme, onToggleTheme, onAddList, onImpo
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
             <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isOrange ? 'text-orange-400' : 'text-blue-500 dark:text-blue-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-            <h1 className={`text-2xl font-bold ${isOrange ? 'text-orange-400' : 'text-gray-900 dark:text-white'}`}>TaskBox</h1>
+            <div className="flex items-baseline space-x-2">
+                <h1 className={`text-2xl font-bold ${isOrange ? 'text-orange-400' : 'text-gray-900 dark:text-white'}`}>TaskBox</h1>
+                <span className={`text-xs font-mono ${isOrange ? 'text-gray-500' : 'text-gray-400'}`}>{version}</span>
+            </div>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-2">
             {user ? (
               <>
-                <Tooltip text="Import tasks from file to current list">
+                <Tooltip text="Import tasks">
                   <button onClick={onImport} className={`hidden sm:flex ${buttonBase} ${isOrange ? orangeHover : defaultHover}`}>
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                      <span className="hidden md:inline">Import</span>
                   </button>
                 </Tooltip>
-                <Tooltip text="Export tasks from current list to CSV">
+                <Tooltip text="Export tasks">
                   <button onClick={onExport} className={`hidden sm:flex ${buttonBase} ${isOrange ? orangeHover : defaultHover}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     <span className="hidden md:inline">Export</span>

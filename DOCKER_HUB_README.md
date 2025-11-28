@@ -15,18 +15,19 @@ TaskBox is a powerful and intuitive to-do list application that you can host on 
 
 ### Features:
 
-*   **Multi-User Support & Sharing:** Secure user registration and login, with the ability to share lists with other users.
+*   **Multi-User Support & Sharing:** Secure user registration and login system.
 *   **User Account Settings:** Users can manage their own credentials and session timeout.
-*   **Import Tasks:** Easily import tasks from CSV or TXT files (supports Date Created history).
+*   **Advanced Import/Export:** Import/Export via CSV or Text, with custom fields and delimiters.
 *   **Pinned Tasks:** Pin your most important tasks to the top of a list.
 *   **3-Level Importance:** Assign a Low, Medium, or High importance level to tasks using colored flags.
 *   **Purge Completed:** Clean up lists by removing all completed tasks with one click.
+*   **Bulk Actions:** Check/Uncheck all tasks easily.
 *   **Task Dependencies:** Set prerequisites for tasks within the same list.
-*   **Filtering & Sorting:** Quickly find tasks with powerful search and sort options.
+*   **Filtering & Sorting:** Clickable headers to sort by Priority, Status, Dependency, Created Date, Due Date, etc.
 *   **Task Statistics:** Get a high-level overview of your productivity with detailed stats.
-*   **Admin Panel:** Create/Delete users and reset passwords.
+*   **Admin Panel:** Create/Delete users, reset passwords, and clear logs.
 *   **Emergency Recovery:** Includes a CLI script to reset the admin password if lost.
-*   **UI/UX Improvements:** New folder-style tabs, high-contrast Orange theme, and clear icons.
+*   **UI/UX Improvements:** Resizable sidebar, high-contrast Orange theme, and clear icons.
 *   **Custom Themes:** Switch between Light, Dark, and Orange/Black themes.
 
 ---

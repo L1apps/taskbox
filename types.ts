@@ -39,8 +39,11 @@ export enum SortOption {
     DUE_DATE_DESC = 'due_date_desc',
     CREATED_DATE_ASC = 'created_date_asc',
     CREATED_DATE_DESC = 'created_date_desc',
-    COMPLETED = 'completed',
+    COMPLETED_ASC = 'completed_asc',
+    COMPLETED_DESC = 'completed_desc',
     IMPORTANCE = 'importance',
+    DEPENDENCY_ASC = 'dependency_asc',
+    DEPENDENCY_DESC = 'dependency_desc',
 }
 
 export interface LogEntry {

@@ -225,6 +225,16 @@ export function createApiRouter(db) {
       res.json(logs);
   });
 
+  router.delete('/admin/logs', authenticate, adminOnly, async (req, res) => {
+    try {
+        await db('activity_log').del();
+        logActivity(db, 'WARN', `Admin '${req.user.username}' cleared activity logs.`);
+        res.status(204).send();
+    } catch (err) {
+        res.status(500).json({ message: 'Failed to clear logs' });
+    }
+  });
+
 
   // Get lists owned by or shared with the current user
   router.get('/lists', authenticate, async (req, res) => {

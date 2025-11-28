@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import TaskListTabs from './components/TaskListTabs';
@@ -12,8 +12,9 @@ import LoginPage from './components/LoginPage';
 import SetupPage from './components/SetupPage';
 import AdminModal from './components/AdminModal';
 import UserSettingsModal from './components/UserSettingsModal';
+import ImportModal from './components/ImportModal';
+import ExportModal from './components/ExportModal';
 import type { Task, TaskList, Theme, User, TaskListWithUsers } from './types';
-import { exportTasksToCSV } from './utils/csvExporter';
 import { parseTasksFromFile } from './utils/csvImporter';
 
 // Custom hook for theme to still use localStorage for user preference
@@ -52,12 +53,18 @@ const App: React.FC = () => {
   const [lists, setLists] = useState<TaskListWithUsers[]>([]);
   const [activeListId, setActiveListId] = useState<number | null>(null);
   
+  // Sidebar Resizing State
+  const [sidebarWidth, setSidebarWidth] = useState(240);
+  const isResizing = useRef(false);
+
   // Modal states
   const [isAddListModalOpen, setIsAddListModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isUserSettingsModalOpen, setIsUserSettingsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [listToShare, setListToShare] = useState<TaskListWithUsers | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -150,6 +157,31 @@ const App: React.FC = () => {
   useEffect(() => {
     fetchLists();
   }, [user, fetchLists]);
+  
+  // Sidebar Resize Logic
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      isResizing.current = true;
+      document.body.style.cursor = 'col-resize';
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+      if (!isResizing.current) return;
+      e.preventDefault(); 
+      let newWidth = e.clientX;
+      if (newWidth < 150) newWidth = 150; 
+      if (newWidth > 500) newWidth = 500; 
+      setSidebarWidth(newWidth);
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+      isResizing.current = false;
+      document.body.style.cursor = 'default';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove]);
 
   const handleLogin = (newToken: string, newUser: User) => {
     localStorage.setItem('taskbox-token', newToken);
@@ -228,8 +260,6 @@ const App: React.FC = () => {
       
       setLists(prevLists => prevLists.map(l => {
           if (l.id === listId) {
-              // When removing a task, we must also update any tasks that depended on it
-              // to prevent "Dependency not found" errors on subsequent updates.
               const updatedTasks = l.tasks
                 .filter(t => t.id !== taskId)
                 .map(t => t.dependsOn === taskId ? { ...t, dependsOn: null } : t);
@@ -256,7 +286,6 @@ const App: React.FC = () => {
             throw new Error(errorData.message || `Server responded with status: ${response.status}`);
         }
         const returnedTask = await response.json();
-        // Optimistically update local state for faster UI response
         setLists(prevLists => prevLists.map(l => {
           if (l.id === listId) {
             return { ...l, tasks: l.tasks.map(t => t.id === returnedTask.id ? returnedTask : t) };
@@ -266,7 +295,6 @@ const App: React.FC = () => {
     } catch (err) {
         const msg = err instanceof Error ? err.message : 'An unknown error occurred';
         setError(`Failed to update task. ${msg}`);
-        // If the update fails, refetch to ensure data consistency
         fetchLists();
     }
   };
@@ -277,8 +305,6 @@ const App: React.FC = () => {
             setError(null);
             const response = await apiFetch(`/api/lists/${listId}/tasks/completed`, { method: 'DELETE' });
             if (!response.ok) throw new Error(`Server responded with status: ${response.status}`);
-            
-            // We must refetch the list from the server here to update dependencies.
             fetchLists();
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -286,71 +312,68 @@ const App: React.FC = () => {
           }
       }
   };
-
-  const handleExport = () => {
-    if (activeList) {
-      exportTasksToCSV(activeList.tasks, `${activeList.title}-tasks.csv`);
-    }
-  };
   
-  const handleImport = () => {
+  const toggleAllTasks = async (completed: boolean) => {
+      if (!activeList) return;
+      const tasksToUpdate = activeList.tasks.filter(t => t.completed !== completed);
+      if (tasksToUpdate.length === 0) return;
+
+      try {
+          setError(null);
+          // Ideally use a bulk update endpoint
+          for (const task of tasksToUpdate) {
+              await apiFetch(`/api/tasks/${task.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ ...task, completed }),
+            });
+          }
+          fetchLists(); 
+      } catch (err) {
+          setError("Failed to update all tasks.");
+      }
+  };
+
+  const processImport = async (fileContent: string) => {
       if (!activeList) {
           alert("Please select a list to import tasks into.");
           return;
       }
       
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv,.txt';
-      
-      input.onchange = async (e) => {
-          const file = (e.target as HTMLInputElement).files?.[0];
-          if (!file) return;
+      try {
+          setError(null);
+          setLoading(true);
+          const tasks = parseTasksFromFile(fileContent);
           
-          const reader = new FileReader();
-          reader.onload = async (event) => {
-              const text = event.target?.result as string;
-              try {
-                  setError(null);
-                  setLoading(true);
-                  const tasks = parseTasksFromFile(text);
-                  
-                  if (tasks.length === 0) {
-                      throw new Error("No valid tasks found in file. Please check the format.");
-                  }
-                  
-                  const response = await apiFetch(`/api/lists/${activeList.id}/tasks/bulk`, {
-                      method: 'POST',
-                      body: JSON.stringify({ tasks })
-                  });
-                  
-                  if (!response.ok) {
-                      const data = await response.json();
-                      throw new Error(data.message || 'Failed to import tasks.');
-                  }
-                  
-                  // Refresh lists to show new tasks
-                  await fetchLists();
-                  alert(`Successfully imported ${tasks.length} tasks.`);
-              } catch (err) {
-                  const msg = err instanceof Error ? err.message : 'An unknown error occurred during import';
-                  setError(msg);
-                  console.error(err);
-              } finally {
-                  setLoading(false);
-              }
-          };
-          reader.readAsText(file);
-      };
-      
-      input.click();
+          if (tasks.length === 0) {
+              throw new Error("No valid tasks found. Please check the format.");
+          }
+          
+          const response = await apiFetch(`/api/lists/${activeList.id}/tasks/bulk`, {
+              method: 'POST',
+              body: JSON.stringify({ tasks })
+          });
+          
+          if (!response.ok) {
+              const data = await response.json();
+              throw new Error(data.message || 'Failed to import tasks.');
+          }
+          
+          await fetchLists();
+          alert(`Successfully imported ${tasks.length} tasks.`);
+          setIsImportModalOpen(false);
+      } catch (err) {
+          const msg = err instanceof Error ? err.message : 'An unknown error occurred during import';
+          setError(msg);
+      } finally {
+          setLoading(false);
+      }
   };
   
   if (!authLoaded) {
     return <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">Loading...</div>;
   }
 
-  // @ts-ignore - aistudio is a global injected by the environment
+  // @ts-ignore
   if (window.aistudio) {
     return <div className="p-8 text-center text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg m-8">
         <h2 className="text-xl font-semibold mb-2">Application Notice</h2>
@@ -376,8 +399,8 @@ const App: React.FC = () => {
         theme={theme} 
         onToggleTheme={toggleTheme} 
         onAddList={() => setIsAddListModalOpen(true)}
-        onImport={handleImport}
-        onExport={handleExport}
+        onImport={() => setIsImportModalOpen(true)}
+        onExport={() => setIsExportModalOpen(true)}
         onShowAbout={() => setIsAboutModalOpen(true)}
         onShowStats={() => setIsStatsModalOpen(true)}
         onShowAdminPanel={() => setIsAdminModalOpen(true)}
@@ -404,17 +427,26 @@ const App: React.FC = () => {
           
           { !loading && !error && (
             <>
-               {/* Tabs Sidebar - Transparent, Dynamic Sizing */}
-               <div className="w-full md:w-auto md:min-w-[200px] md:max-w-[320px] border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 shrink-0 bg-transparent">
+               {/* Resizable Sidebar */}
+               <div 
+                className="relative border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 shrink-0 bg-transparent flex flex-col"
+                style={{ width: `${sidebarWidth}px` }}
+               >
                   <TaskListTabs
                     lists={lists}
                     activeListId={activeListId}
                     onSelectList={setActiveListId}
                     theme={theme}
                   />
+                  {/* Resizer Handle */}
+                  <div 
+                    onMouseDown={handleMouseDown}
+                    className="hidden md:block absolute top-0 right-0 w-2 h-full cursor-col-resize hover:bg-blue-500/50 transition-colors z-20"
+                    title="Drag to resize"
+                  ></div>
               </div>
 
-              {/* Main Task View - Takes available space on Right */}
+              {/* Main Task View */}
               <div className="flex-grow overflow-hidden h-full">
                   {activeList ? (
                     <TaskListView
@@ -424,6 +456,7 @@ const App: React.FC = () => {
                       theme={theme}
                       onUpdateTask={(task) => updateTask(activeList.id, task)}
                       onPurgeCompleted={() => purgeCompletedTasks(activeList.id)}
+                      onToggleAllTasks={(completed) => toggleAllTasks(completed)}
                       onAddTask={(desc) => addTask(activeList.id, desc)}
                       onRemoveTask={(taskId) => removeTask(activeList.id, taskId)}
                       onRemoveList={() => removeList(activeList.id)}
@@ -447,6 +480,8 @@ const App: React.FC = () => {
       {isAdminModalOpen && user?.role === 'ADMIN' && <AdminModal onClose={() => setIsAdminModalOpen(false)} theme={theme} apiFetch={apiFetch} />}
       {isUserSettingsModalOpen && user && <UserSettingsModal onClose={() => setIsUserSettingsModalOpen(false)} user={user} theme={theme} apiFetch={apiFetch} onUserUpdated={handleUserUpdated} />}
       {listToShare && <ShareListModal list={listToShare} onClose={() => setListToShare(null)} theme={theme} apiFetch={apiFetch} onListUpdated={fetchLists} />}
+      {isImportModalOpen && <ImportModal onClose={() => setIsImportModalOpen(false)} onImport={processImport} theme={theme} />}
+      {isExportModalOpen && activeList && <ExportModal onClose={() => setIsExportModalOpen(false)} tasks={activeList.tasks} listName={activeList.title} theme={theme} />}
     </div>
   );
 };

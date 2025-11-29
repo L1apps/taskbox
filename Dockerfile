@@ -1,3 +1,4 @@
+
 # Stage 1: Build the React frontend
 # This stage installs all dependencies (including devDependencies) and builds the static frontend assets.
 FROM node:20-alpine AS builder
@@ -22,6 +23,12 @@ RUN npm run build
 # This stage takes the built assets from the 'builder' stage and sets up the final, lean production server.
 FROM node:20-alpine
 WORKDIR /app
+
+# Add Metadata Labels
+LABEL maintainer="Level 1 Apps"
+LABEL version="3.9.0"
+LABEL description="TaskBox - Standalone Task Manager"
+LABEL com.l1apps.www="Level 1 Apps"
 
 # For native modules like bcrypt, Alpine needs some build tools.
 RUN apk add --no-cache python3 make g++

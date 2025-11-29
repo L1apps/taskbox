@@ -1,30 +1,19 @@
-
 import React, { useState } from 'react';
-import type { TaskListWithUsers, Theme, User } from '../types';
+import { useTaskBox } from '../contexts/TaskBoxContext';
+import { useModal } from '../contexts/ModalContext';
+import type { TaskListWithUsers, Theme } from '../types';
 import Tooltip from './Tooltip';
 
-interface TaskListTabsProps {
-  lists: TaskListWithUsers[];
-  activeListId: number | null;
-  onSelectList: (id: number) => void;
-  onAddList: (parentId: number | null) => void;
-  onDeleteList: (listId: number) => void;
-  onMoveList: (list: TaskListWithUsers) => void;
-  onShareList: (list: TaskListWithUsers) => void;
-  onMergeList: (list: TaskListWithUsers) => void;
-  onRenameList: (list: TaskListWithUsers) => void;
-  theme: Theme;
-  user: User;
-}
-
-const ListTreeItem: React.FC<{
+interface ListTreeItemProps {
     list: TaskListWithUsers;
     allLists: TaskListWithUsers[];
     activeListId: number | null;
     depth: number;
-    handlers: TaskListTabsProps;
+    onSelect: (id: number) => void;
     theme: Theme;
-}> = ({ list, allLists, activeListId, depth, handlers, theme }) => {
+}
+
+const ListTreeItem: React.FC<ListTreeItemProps> = ({ list, allLists, activeListId, depth, onSelect, theme }) => {
     const isOrange = theme === 'orange';
     const [isExpanded, setIsExpanded] = useState(true);
     const children = allLists.filter(l => l.parentId === list.id);
@@ -46,7 +35,7 @@ const ListTreeItem: React.FC<{
         <div style={{ marginLeft: `${depth * 12}px` }}>
             <div 
                 className={`group ${baseClass} ${isActive ? activeClass : inactiveClass}`}
-                onClick={() => handlers.onSelectList(list.id)}
+                onClick={() => onSelect(list.id)}
             >
                 <div className="flex items-center min-w-0 overflow-hidden w-full">
                     {/* Expand/Collapse for parents */}
@@ -60,12 +49,10 @@ const ListTreeItem: React.FC<{
                     
                     {/* Distinct Icons */}
                     {isMaster ? (
-                        // Stack Icon for Master/Top Level
                         <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 shrink-0 ${isOrange ? 'text-orange-400' : 'text-blue-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
                     ) : (
-                        // Document List Icon for Sublist
                         <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 shrink-0 ${isOrange ? 'text-orange-300' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
@@ -82,7 +69,7 @@ const ListTreeItem: React.FC<{
                     allLists={allLists} 
                     activeListId={activeListId} 
                     depth={depth + 1} 
-                    handlers={handlers}
+                    onSelect={onSelect}
                     theme={theme}
                 />
             ))}
@@ -90,12 +77,15 @@ const ListTreeItem: React.FC<{
     );
 };
 
-const TaskListTabs: React.FC<TaskListTabsProps> = (props) => {
-  const { lists, activeListId, onAddList, onRenameList, onShareList, onMoveList, onMergeList, onDeleteList, theme, user } = props;
+const TaskListTabs: React.FC = () => {
+  const { lists, activeListId, activeList, setActiveListId, theme, user, removeList } = useTaskBox();
+  const { openModal } = useModal();
+  
+  if (!user) return null;
+
   const isOrange = theme === 'orange';
   const rootLists = lists.filter(l => !l.parentId);
   
-  const activeList = lists.find(l => l.id === activeListId);
   const isOwner = activeList?.ownerId === user.id;
   const canAddSublist = !!activeList && isOwner && activeList.tasks.length === 0 && !activeList.parentId;
   
@@ -107,7 +97,7 @@ const TaskListTabs: React.FC<TaskListTabsProps> = (props) => {
         <div className="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700 relative z-50">
             <span className={`text-xs font-semibold uppercase ${isOrange ? 'text-gray-500' : 'text-gray-400'}`}>Lists</span>
             <Tooltip text="Add Top Level List" align="right">
-                <button onClick={() => onAddList(null)} className={toolbarBtnClass}>
+                <button onClick={() => openModal('ADD_LIST', { parentId: null })} className={toolbarBtnClass}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                 </button>
             </Tooltip>
@@ -116,33 +106,33 @@ const TaskListTabs: React.FC<TaskListTabsProps> = (props) => {
         {/* Toolbar */}
         <div className="flex items-center justify-start gap-1 p-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 overflow-visible">
              <Tooltip text="Add Sublist" align="left" position="top">
-                <button onClick={() => activeList && onAddList(activeList.id)} disabled={!canAddSublist} className={toolbarBtnClass}>
+                <button onClick={() => activeList && openModal('ADD_LIST', { parentId: activeList.id })} disabled={!canAddSublist} className={toolbarBtnClass}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                 </button>
             </Tooltip>
             <Tooltip text="Rename" align="center" position="top">
-                <button onClick={() => activeList && onRenameList(activeList)} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
+                <button onClick={() => activeList && openModal('RENAME_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                 </button>
             </Tooltip>
             <Tooltip text="Share" align="center" position="top">
-                <button onClick={() => activeList && onShareList(activeList)} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
+                <button onClick={() => activeList && openModal('SHARE_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                 </button>
             </Tooltip>
             <Tooltip text="Move" align="center" position="top">
-                <button onClick={() => activeList && onMoveList(activeList)} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
+                <button onClick={() => activeList && openModal('MOVE_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 </button>
             </Tooltip>
             <Tooltip text="Merge" align="center" position="top">
-                <button onClick={() => activeList && onMergeList(activeList)} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
+                <button onClick={() => activeList && openModal('MERGE_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
                 </button>
             </Tooltip>
             <div className="flex-grow"></div>
             <Tooltip text="Delete" align="right" position="top">
-                <button onClick={() => activeList && onDeleteList(activeList.id)} disabled={!activeList || !isOwner} className={`${toolbarBtnClass} hover:text-red-500`}>
+                <button onClick={() => activeList && removeList(activeList.id)} disabled={!activeList || !isOwner} className={`${toolbarBtnClass} hover:text-red-500`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             </Tooltip>
@@ -155,9 +145,9 @@ const TaskListTabs: React.FC<TaskListTabsProps> = (props) => {
                     key={list.id} 
                     list={list} 
                     allLists={lists} 
-                    activeListId={props.activeListId} 
+                    activeListId={activeListId} 
                     depth={0} 
-                    handlers={props}
+                    onSelect={setActiveListId}
                     theme={theme}
                 />
             ))}

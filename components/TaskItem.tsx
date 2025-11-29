@@ -9,6 +9,7 @@ interface TaskItemProps {
   allTasksInList: Task[];
   onUpdate: (task: Task) => void;
   onRemove: (taskId: number) => void;
+  onCopyRequest: (task: Task) => void;
 }
 
 const ImportanceFlag: React.FC<{ level: number; onClick: () => void; }> = ({ level, onClick }) => {
@@ -43,10 +44,9 @@ const PinButton: React.FC<{ pinned: boolean; onClick: () => void }> = ({ pinned,
     );
 };
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpdate, onRemove }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpdate, onRemove, onCopyRequest }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [description, setDescription] = useState(task.description);
-  const [justCopied, setJustCopied] = useState(false);
 
   const dependencyTask = useMemo(() => 
     task.dependsOn ? allTasksInList.find(t => t.id === task.dependsOn) : null,
@@ -88,40 +88,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
     onUpdate({ ...task, dependsOn: selectedId });
   };
   
-  const handleCopyDescription = async (e: React.MouseEvent) => {
+  const handleCopyClick = (e: React.MouseEvent) => {
       e.preventDefault();
-      e.stopPropagation(); // Prevent triggering Edit Mode
-
-      // Attempt robust copy logic that works in both Secure (HTTPS) and Non-Secure (HTTP/Localhost) contexts
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-          try {
-              await navigator.clipboard.writeText(task.description);
-              setJustCopied(true);
-              setTimeout(() => setJustCopied(false), 2000);
-              return;
-          } catch (err) {
-              console.warn("Clipboard API failed, falling back to execCommand", err);
-          }
-      }
-      
-      // Fallback for older browsers or non-secure contexts
-      const textArea = document.createElement("textarea");
-      textArea.value = task.description;
-      textArea.style.position = "fixed"; // Avoid scrolling to bottom
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      
-      try {
-          const successful = document.execCommand('copy');
-          if (successful) {
-              setJustCopied(true);
-              setTimeout(() => setJustCopied(false), 2000);
-          }
-      } catch (err) {
-          console.error('Fallback copy failed', err);
-      }
-      document.body.removeChild(textArea);
+      e.stopPropagation(); 
+      onCopyRequest(task);
   };
   
   const isOrange = theme === 'orange';
@@ -186,8 +156,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
                 {task.description}
               </p>
               <div className="opacity-0 group-hover/desc:opacity-100 transition-opacity ml-2 shrink-0 self-start mt-1">
-                 <Tooltip text={justCopied ? "Copied!" : "Copy description"}>
-                    <button onClick={handleCopyDescription} className="text-gray-400 hover:text-blue-500">
+                 <Tooltip text="Copy / Move">
+                    <button onClick={handleCopyClick} className="text-gray-400 hover:text-blue-500">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>

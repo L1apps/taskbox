@@ -1,16 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from './Modal';
-import { Theme, User, TaskListWithUsers } from '../types';
+import { Theme, User } from '../types';
+import { useTaskBox } from '../contexts/TaskBoxContext';
 
 interface ShareListModalProps {
-  list: TaskListWithUsers;
+  list: { id: number }; // We only strictly need the ID, but might receive the whole object
   onClose: () => void;
   theme: Theme;
   apiFetch: (url: string, options?: RequestInit) => Promise<Response>;
   onListUpdated: () => void;
 }
 
-const ShareListModal: React.FC<ShareListModalProps> = ({ list, onClose, theme, apiFetch, onListUpdated }) => {
+const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, onClose, theme, apiFetch, onListUpdated }) => {
+  const { lists } = useTaskBox();
+  
+  // Resolve the fresh list from context to ensure UI updates immediately after actions
+  const list = useMemo(() => lists.find(l => l.id === initialListProp.id), [lists, initialListProp.id]);
+
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [error, setError] = useState('');
@@ -29,6 +36,8 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list, onClose, theme, a
   useEffect(() => {
     fetchAllUsers();
   }, [fetchAllUsers]);
+
+  if (!list) return null; // Should not happen
 
   const handleShare = async () => {
       if (!selectedUserId) return;
@@ -66,7 +75,10 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list, onClose, theme, a
   const isOrange = theme === 'orange';
   const themeRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const buttonColor = isOrange ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-500 hover:bg-blue-600';
-  const inputTextColor = isOrange ? 'text-gray-900' : '';
+  // Fix #2: Ensure input background provides contrast for text
+  const inputClass = isOrange 
+    ? 'bg-gray-800 border-gray-600 text-white' 
+    : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white';
 
   const usersToShareWith = allUsers.filter(u => u.id !== list.ownerId && !list.sharedWith.some(su => su.id === u.id));
 
@@ -79,7 +91,7 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list, onClose, theme, a
                 <select 
                     value={selectedUserId}
                     onChange={(e) => setSelectedUserId(e.target.value)}
-                    className={`flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
+                    className={`flex-grow px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm ${inputClass}`}
                 >
                     <option value="">Select a user...</option>
                     {usersToShareWith.map(user => (
@@ -99,7 +111,7 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list, onClose, theme, a
                 <ul className="space-y-2">
                     {list.sharedWith.map(user => (
                         <li key={user.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md">
-                            <span>{user.username}</span>
+                            <span className={isOrange ? 'text-gray-900' : 'dark:text-gray-200'}>{user.username}</span>
                             <button onClick={() => handleRemoveShare(user.id)} className="text-xs text-red-500 hover:underline">
                                 Remove
                             </button>

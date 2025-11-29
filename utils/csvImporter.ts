@@ -1,6 +1,47 @@
 
 import type { Task } from '../types';
 
+// Helper to parse loose date formats
+const parseDate = (dateStr: string): string | null => {
+    if (!dateStr) return null;
+    const cleanStr = dateStr.trim().toLowerCase().replace(/"/g, '');
+    
+    const now = new Date();
+    
+    if (cleanStr === 'today' || cleanStr === 'now') {
+        return now.toISOString().split('T')[0];
+    }
+    
+    if (cleanStr === 'tomorrow') {
+        const tmrw = new Date(now);
+        tmrw.setDate(now.getDate() + 1);
+        return tmrw.toISOString().split('T')[0];
+    }
+    
+    // Check for MM/DD/YYYY
+    const slashMatch = cleanStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+        // Month is 0-indexed in JS Date
+        const d = new Date(parseInt(slashMatch[3]), parseInt(slashMatch[1]) - 1, parseInt(slashMatch[2]));
+        if (!isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+        }
+    }
+
+    // Check for standard ISO YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+        return cleanStr;
+    }
+    
+    // Last resort: Date.parse
+    const ts = Date.parse(cleanStr);
+    if (!isNaN(ts)) {
+        return new Date(ts).toISOString().split('T')[0];
+    }
+
+    return null;
+};
+
 export const parseTasksFromFile = (fileContent: string): Partial<Task>[] => {
   const lines = fileContent.trim().split(/\r\n|\n|\r/);
 
@@ -87,12 +128,8 @@ export const parseTasksFromFile = (fileContent: string): Partial<Task>[] => {
     }
 
     if (dueDateIndex > -1) {
-      const dateValue = values[dueDateIndex]?.trim().replace(/"/g, '');
-      if (dateValue && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-        task.dueDate = dateValue;
-      } else {
-        task.dueDate = null;
-      }
+      const dateValue = values[dueDateIndex];
+      task.dueDate = parseDate(dateValue);
     } else {
         task.dueDate = null;
     }

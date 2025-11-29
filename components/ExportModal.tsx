@@ -37,6 +37,17 @@ const ExportModal: React.FC<ExportModalProps> = ({ onClose, tasks, listName, the
       });
       onClose();
   };
+  
+  const toggleAll = (checked: boolean) => {
+      setFields({
+          description: true, // Always true
+          completed: checked,
+          createdAt: checked,
+          dueDate: checked,
+          importance: checked
+      });
+      setIncludeHeaders(checked); // Sync header checkbox
+  };
 
   return (
     <Modal title="Export Tasks" onClose={onClose} theme={theme}>
@@ -73,7 +84,13 @@ const ExportModal: React.FC<ExportModalProps> = ({ onClose, tasks, listName, the
 
             {/* Fields Selection */}
             <div>
-                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Include Fields</label>
+                 <div className="flex justify-between items-center mb-2">
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Include Fields</label>
+                     <div className="space-x-2 text-xs">
+                         <button onClick={() => toggleAll(true)} className="text-blue-500 hover:underline">Select All</button>
+                         <button onClick={() => toggleAll(false)} className="text-blue-500 hover:underline">Deselect All</button>
+                     </div>
+                 </div>
                  <div className="space-y-2">
                      <label className="flex items-center space-x-2">
                         <input type="checkbox" checked={fields.description} disabled className="opacity-50" />

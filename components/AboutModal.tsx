@@ -21,11 +21,11 @@ const AboutModal: React.FC<AboutModalProps> = ({ onClose, theme }) => {
         <p>TaskBox is a standalone, feature-rich task management application designed to organize your to-do lists efficiently.</p>
         
         <div className="pt-4 border-t dark:border-gray-700">
-            <h4 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">Importing Tasks</h4>
-            <p className="mb-2">You can import tasks by uploading a file or pasting text.</p>
+            <h4 className="font-semibold text-gray-800 dark:text-gray-100 mb-2">Importing & Exporting</h4>
+            <p className="mb-2">You can import tasks by uploading a file or using the clipboard tool.</p>
              <ul className="list-disc pl-5 mb-2">
-                 <li><b>Simple List:</b> Just paste descriptions (one per line).</li>
-                 <li><b>Structured Data:</b> Use CSV format with headers. Supported columns: `Description`, `Completed`, `Date Created`, `Due Date`, `Importance`.</li>
+                 <li><b>Copy / Paste:</b> Use the clipboard icon in the header to paste lists of tasks or copy-paste between external apps.</li>
+                 <li><b>Structured Data:</b> Import CSV files with headers. Supported columns: `Description`, `Completed`, `Date Created`, `Due Date`, `Importance`.</li>
              </ul>
         </div>
         

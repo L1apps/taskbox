@@ -3,6 +3,57 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [3.9.1] - 2025-09-17
+### Added
+- **Duplicate Prevention:** Implemented strict checks when importing tasks via Paste/File. Tasks with descriptions that match existing tasks in the list are filtered out automatically to prevent duplicates.
+- **Clipboard Option:** Added "Descriptions Only" button to the Copy/Paste modal to allow copying just the text of tasks without metadata.
+- **UI:** Added a clear 'X' button to the local list search bar.
+
+### Changed
+- **UI Layout:** Moved the "Show Completed" eye icon to the right side of the toolbar, next to the "Purge" button, for better grouping.
+- **Search:** Changed global search placeholder to "Search all".
+- **Permissions:** 
+    - Disabled **Export** button if the list is empty (0 tasks).
+    - **Move Logic:** Restricted moving lists that contain sublists. Container lists must stay at the top level and cannot be moved into other lists.
+    - **Merge Logic:** Disabled merging for container lists. You cannot merge a list that contains sublists into another list.
+    - **Move Dropdown:** Filtered the dropdown to exclude the current parent list to prevent invalid selection.
+
+## [3.9.0] - 2025-09-15
+### Architecture
+- **Refactor:** Major architectural overhaul. Replaced prop-drilling in `App.tsx` with a global `TaskBoxContext` and `ModalContext` using the Context API.
+- **State Management:** Implemented a centralized `ModalManager` to handle all application modals, improving code maintainability.
+
+### Added
+- **Global Search:** Added a persistent search bar in the Header that allows searching for tasks across ALL lists simultaneously.
+- **Search UI:** Added a clear button (X) to the search bar for quick reset.
+- **Export:** Added "Select All" / "Deselect All" buttons to the Export Modal for faster field selection.
+- **Clipboard:** Enhanced "Copy / Paste Tasks" modal. Added buttons to "Load Active List" into the buffer and "Copy to Clipboard".
+- **Local Search:** Added a list-specific search bar in the task view toolbar.
+
+### Changed
+- **Paste:** Renamed "Paste" modal to "Copy / Paste Tasks" to better reflect its capability to act as a clipboard buffer.
+- **Move Logic:** Improved share inheritance. Moving a list into a new parent now shares the new parent with existing users. Moving a list out of a parent removes unnecessary access to the old parent.
+- **Share Modal:** Improved UI contrast for input fields in Dark/Orange themes. The modal now updates the list of shared users instantly upon addition/removal.
+- **UI:** Replaced "Show Completed" checkbox with a cleaner Icon toggle.
+
+### Fixed
+- **Permissions:** Move and Merge modals now strictly filter out lists that cannot be valid targets (e.g., lists you don't own, or trying to move a list into a sublist). Shared lists are hidden from these dialogs.
+- **Copy Task:** The "Copy/Move Task" modal now filters out container lists (lists with sublists) and the current list from the destination dropdown.
+- **Date Import:** Improved date parsing for imports. Now supports "today", "tomorrow", "now" keywords and "MM/DD/YYYY" format.
+- **Sharing:** Fixed an issue where removing a shared user from a sublist didn't clean up the parent share correctly if no other sublists were shared.
+- **Docker:** Fixed the Dockerfile vendor label to standard `com.l1apps.www`.
+
+## [3.8.0] - 2025-09-10
+### Added
+- **Copy/Move Task:** Added functionality to Copy or Move a task to a different list via a new Modal.
+- **Docker Labels:** Added standard OCI labels to the Dockerfile.
+- **Run Instructions:** Added `docker run` examples to README.
+
+### Changed
+- **Permissions:** Hardened permission logic. Only the **Owner** of a list can Move or Merge it. Shared users are restricted to task operations.
+- **Sharing Logic:** "Upward Sharing" implemented. When sharing a sublist, the parent is now shared automatically (to allow navigation) without sharing siblings.
+- **UI:** Enforced high-contrast text for inputs in Dark/Orange themes.
+
 ## [3.7.4] - 2025-09-01
 ### Fixed
 - **Sorting:** Completely refactored list sorting. It now handles null/undefined values safely, preventing glitches where rows jump around. Empty dates are explicitly pushed to the end.

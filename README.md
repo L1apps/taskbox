@@ -1,12 +1,12 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.7.4
+**Version:** 3.9.1
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
 
-![TaskBox Screenshot](https://l1apps.com/taskbox-screenshot/)
+![TaskBox Screenshot](https://l1apps.com/taskbox/taskbox-screenshot/)
 
 ---
 
@@ -37,7 +37,7 @@ This is the standard method for most users.
     
     services:
       taskbox:
-        image: l1apps/taskbox:latest # or ghcr.io/l1apps/taskbox:latest
+        image: l1apps/taskbox:latest
         container_name: taskbox
         ports:
           - "6500:3000"
@@ -62,28 +62,39 @@ This is the standard method for most users.
 4.  **Access TaskBox:**
     Open your web browser and navigate to `http://<your-server-ip>:6500`.
 
-### 2. Portainer Stacks
+### 2. Docker Run
 
-If you use Portainer, you can deploy TaskBox easily using the "Stacks" feature.
+If you prefer to run it manually via the CLI:
 
-1.  **Log in** to your Portainer instance.
-2.  Navigate to **Stacks** and click **+ Add stack**.
-3.  **Name:** Enter `taskbox`.
-4.  **Build method:** Select **Web editor**.
-5.  **Configuration:** Paste the YAML content from the **Docker Compose** section above into the editor.
-    *   *Note:* You may want to change the volume to a named volume (e.g., `taskbox_data:/app/data`) if you prefer Portainer to manage storage.
-6.  Click **Deploy the stack**.
+```bash
+docker run -d \
+  --name taskbox \
+  -p 6500:3000 \
+  -v ./data:/app/data \
+  -e JWT_SECRET=mysecurekey \
+  --restart unless-stopped \
+  l1apps/taskbox:latest
+```
+
+### Pre-Release Builds
+
+If you wish to test the latest features before they are marked as stable, you can look for tags marked as pre-release on Docker Hub (e.g., `l1apps/taskbox:3.9.0-rc1`). Use caution as these may contain bugs.
 
 ---
 
 ## Features
 
+*   **Global Search:** Instantly find tasks across all your lists using the search bar in the header.
+*   **Duplicate Prevention:** Strict checks during paste/import to prevent creating duplicate tasks.
+*   **Context-Aware Architecture:** Faster performance and smoother state management.
+*   **Clipboard Management:** Copy active lists to clipboard (All Data or Descriptions Only) or paste tasks easily.
 *   **Sidebar Toolbar:** Centralized control for list actions (Rename, Share, Move, Merge, Delete).
 *   **Demo Data:** Auto-generates example list on install. Admin can "Reset to Defaults".
 *   **Nested Lists:** Hierarchical structure (Top Level -> Master List -> Sublist).
 *   **Merge Lists:** Consolidate lists by merging them together.
 *   **Renaming:** Rename any list or sublist easily.
-*   **Recursive Sharing:** Sharing a Parent List automatically grants access to all its sublists.
+*   **Recursive Sharing:** Sharing a Parent List automatically grants access to its sublists.
+*   **Copy/Move Tasks:** Easily duplicate or move tasks between lists.
 *   **Multi-User Support:** Secure user registration and login system.
 *   **User Settings:** Change username, password, and session timeout.
 *   **Admin Panel:** Create/Delete users, reset passwords, and view/clear security logs.
@@ -93,7 +104,6 @@ If you use Portainer, you can deploy TaskBox easily using the "Stacks" feature.
 *   **3-Level Importance:** Low, Medium, High importance flags.
 *   **Task Dependencies:** Set prerequisites for tasks.
 *   **Advanced Import/Export:** Support for CSV and Text files with custom delimiters.
-*   **Paste Feature:** Quickly paste text lists directly into TaskBox.
 *   **Purge Completed:** Quickly remove completed tasks.
 *   **Bulk Actions:** Toggle check/uncheck all tasks.
 *   **Statistics Page:** View completion rates and overdue tasks.
@@ -104,7 +114,7 @@ If you use Portainer, you can deploy TaskBox easily using the "Stacks" feature.
 
 ## Tech Stack
 
-*   **Frontend:** React, Tailwind CSS
+*   **Frontend:** React (Context API), Tailwind CSS
 *   **Backend:** Node.js, Express.js with JWT
 *   **Database:** SQLite
 *   **Containerization:** Docker (Alpine Linux base)
@@ -128,18 +138,13 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
-*   **v3.7.4:** Robust sorting logic, error handling improvements, better popup styling.
-*   **v3.7.3:** Statistics breakdown logic improvement, UI Polishing.
-*   **v3.7.2:** Separate Paste feature, Custom Warning Modals, UI Polishing.
-*   **v3.7.1:** Add Task Popup for sublists, Tooltip z-index layering fix.
-*   **v3.7.0:** Priority sorting fixes, tooltip improvements, link updates.
-*   **v3.6.0:** Database integrity fixes, Tooltip visibility, Text updates.
-*   **v3.5.0:** Sidebar Toolbar (New UX), Admin Refresh logic, UI Cleanup.
+*   **v3.9.1:** Duplicate prevention, UI Polish (Clear Search, Icon Layout), "Descriptions Only" copy option.
+*   **v3.9.0:** Major Refactor (Context API), Global Search, Enhanced Copy/Paste, UX Fixes.
+*   **v3.8.0:** Copy/Move Tasks to other lists, Upward Sharing Logic, Strict Owner Permissions, Docker Labels.
+*   **v3.7.x:** Statistics logic, UI Polishing, Warning Modals.
+*   **v3.5.0:** Sidebar Toolbar (New UX), Admin Refresh logic.
 *   **v3.4.0:** Demo Data Seeding, Reset to Defaults.
-*   **v3.3.0:** Renaming Lists, Admin Maintenance Tools (Prune/Purge/Vacuum), Sidebar UI Overhaul.
-*   **v3.2.0:** Merge functionality, Strict Hierarchy Rules.
 *   **v3.1.0:** Nested Lists (Sublists), Recursive Sharing.
-*   **v3.0.0:** Folder structure, Duplicate Checker.
 *   **v2.x:** Admin Panel, Multi-User, Import/Export tools.
 *   **v1.0.0:** Initial Release.
 

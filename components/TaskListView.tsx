@@ -1,38 +1,60 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Task, TaskListWithUsers, Theme, User } from '../types';
-import { SortOption } from '../types';
+import { useTaskBox } from '../contexts/TaskBoxContext';
+import { useModal } from '../contexts/ModalContext';
+import { SortOption, Task } from '../types';
 import TaskItem from './TaskItem';
 import AddTaskForm from './AddTaskForm';
 import Tooltip from './Tooltip';
 import WarningModal from './WarningModal';
 
-interface TaskListViewProps {
-  list: TaskListWithUsers;
-  currentUser: User;
-  theme: Theme;
-  onUpdateTask: (task: Task) => void;
-  onAddTask: (description: string) => void;
-  onRemoveTask: (taskId: number) => void;
-  onPurgeCompleted: () => void;
-  onToggleAllTasks: (completed: boolean) => void;
-}
+const TaskListView: React.FC = () => {
+  const { 
+    activeList, 
+    theme, 
+    updateTask, 
+    addTask, 
+    removeTask, 
+    apiFetch, 
+    fetchData 
+  } = useTaskBox();
+  
+  const { openModal } = useModal();
 
-const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, onAddTask, onRemoveTask, onPurgeCompleted, onToggleAllTasks }) => {
-  const [filter, setFilter] = useState('');
   const [sort, setSort] = useState<SortOption>(SortOption.DEFAULT);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [localSearch, setLocalSearch] = useState('');
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
 
-  // Check if this list acts as a container (has sublists)
-  const isContainer = list.children && list.children.length > 0;
+  if (!activeList) {
+      return <div className="p-16 text-center text-gray-500 flex flex-col justify-center h-full">Select a list or create one.</div>;
+  }
 
+  const list = activeList;
+  const isContainer = list.children && list.children.length > 0;
   const tasks = list.tasks || [];
 
+  const handlePurgeCompleted = () => { 
+      if(window.confirm('Purge completed?')) { 
+          apiFetch(`/api/lists/${activeList.id}/tasks/completed`, {method:'DELETE'}).then(fetchData); 
+      }
+  };
+
+  const handleToggleAllTasks = async (completed: boolean) => {
+      for(const t of activeList.tasks.filter(x => x.completed !== completed)) {
+          await apiFetch(`/api/tasks/${t.id}`, { method: 'PUT', body: JSON.stringify({...t, completed})}); 
+      }
+      fetchData(); 
+  };
+
   const sortedAndFilteredTasks = useMemo(() => {
-    let filteredTasks = tasks
-      .filter(task => task.description.toLowerCase().includes(filter.toLowerCase()))
-      .filter(task => showCompleted || !task.completed);
+    let filteredTasks = tasks.filter(task => showCompleted || !task.completed);
+    
+    // Local Search Filter
+    if (localSearch) {
+        const q = localSearch.toLowerCase();
+        filteredTasks = filteredTasks.filter(t => t.description.toLowerCase().includes(q));
+    }
 
     const pinnedTasks = filteredTasks.filter(t => t.pinned);
     const unpinnedTasks = filteredTasks.filter(t => !t.pinned);
@@ -98,7 +120,7 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
     const sortedUnpinned = sortTasks([...unpinnedTasks]);
 
     return [...sortedPinned, ...sortedUnpinned];
-  }, [tasks, filter, sort, showCompleted]);
+  }, [tasks, sort, showCompleted, localSearch]);
 
   const completionPercentage = useMemo(() => {
     if (tasks.length === 0) return 0;
@@ -129,11 +151,9 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
 
   const isOrange = theme === 'orange';
   const progressColor = isOrange ? 'bg-orange-500' : 'bg-blue-500';
-  const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
-  const checkboxColor = isOrange ? 'text-orange-600' : 'text-blue-600';
   const buttonColor = isOrange ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700';
   const headerTextColor = isOrange ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400';
-  const inputTextColor = isOrange ? 'text-gray-900' : '';
+  const inputBg = isOrange ? 'bg-gray-800 text-gray-100 border-gray-600' : 'bg-white border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100';
 
   return (
     <div className="p-4 sm:p-6 flex flex-col h-full relative">
@@ -144,11 +164,11 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
           </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-4 items-center flex-wrap">
-          {/* Bulk Toggle (Moved to Left) */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center flex-wrap">
+          {/* Bulk Toggle */}
           <Tooltip text="Check or Uncheck all" align="left">
               <button
-                  onClick={() => onToggleAllTasks(!allVisibleCompleted)}
+                  onClick={() => handleToggleAllTasks(!allVisibleCompleted)}
                   className={`p-2 rounded-md border ${isOrange ? 'border-gray-600 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700'} transition-colors`}
               >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -160,22 +180,57 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
               </button>
           </Tooltip>
 
-          <input
-          type="text"
-          placeholder="Search tasks..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className={`flex-grow w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${focusRingColor} ${inputTextColor}`}
-          />
-          
-          <label className="flex items-center space-x-2 cursor-pointer">
-          <input type="checkbox" checked={showCompleted} onChange={() => setShowCompleted(!showCompleted)} className={`h-4 w-4 rounded border-gray-300 ${checkboxColor} ${focusRingColor}`} />
-          <span>Show Completed</span>
-          </label>
+          {/* Local List Search */}
+          <div className="relative flex-grow max-w-xs">
+              <input 
+                  type="text" 
+                  placeholder="Filter current list..." 
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
+                  className={`block w-full pl-8 pr-10 py-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${inputBg}`}
+              />
+              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                 <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                 </svg>
+              </div>
+              {localSearch && (
+                  <button 
+                      onClick={() => setLocalSearch('')}
+                      className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                  </button>
+              )}
+          </div>
 
           <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 sm:ml-auto">
+              {/* Show Completed Icon Toggle */}
+              <Tooltip text={showCompleted ? "Hide Completed Tasks" : "Show Completed Tasks"}>
+                  <button
+                      onClick={() => setShowCompleted(!showCompleted)}
+                      className={`p-2 rounded-md border transition-colors ${showCompleted 
+                          ? (isOrange ? 'bg-orange-900/50 border-orange-500 text-orange-400' : 'bg-blue-100 border-blue-400 text-blue-600 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-400') 
+                          : (isOrange ? 'border-gray-600 hover:bg-gray-800 text-gray-500' : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-500')}`}
+                  >
+                      {showCompleted ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                          </svg>
+                      ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                              <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.742L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.064 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                          </svg>
+                      )}
+                  </button>
+              </Tooltip>
+
               <button
-                  onClick={onPurgeCompleted}
+                  onClick={handlePurgeCompleted}
                   disabled={!hasCompletedTasks}
                   className={`px-3 py-2 text-white text-sm rounded-md transition flex items-center space-x-2 ${buttonColor} disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
@@ -198,14 +253,22 @@ const TaskListView: React.FC<TaskListViewProps> = ({ list, theme, onUpdateTask, 
 
       <div className="space-y-3 flex-grow overflow-y-auto no-scrollbar pb-4">
           {sortedAndFilteredTasks.map(task => (
-          <TaskItem key={task.id} task={task} allTasksInList={tasks} onUpdate={onUpdateTask} onRemove={onRemoveTask} theme={theme} />
+          <TaskItem 
+            key={task.id} 
+            task={task} 
+            allTasksInList={tasks} 
+            onUpdate={updateTask} 
+            onRemove={removeTask} 
+            onCopyRequest={(t) => openModal('COPY_TASK', { task: t })}
+            theme={theme} 
+          />
           ))}
           {sortedAndFilteredTasks.length === 0 && <div className="text-center py-8 text-gray-500">No tasks match your criteria.</div>}
       </div>
 
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
           <AddTaskForm 
-            onAddTask={onAddTask} 
+            onAddTask={(desc) => addTask(list.id, desc)} 
             onWarning={setWarningMessage} 
             theme={theme} 
             currentTasks={tasks} 

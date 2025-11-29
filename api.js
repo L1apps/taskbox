@@ -175,7 +175,6 @@ export function createApiRouter(db) {
               return res.json({ message: 'Database optimized (VACUUM).' });
           } 
           else if (action === 'prune') {
-              // Remove tasks belonging to non-existent lists
               await db('tasks')
                 .whereNotIn('list_id', db.select('id').from('lists'))
                 .del();
@@ -183,24 +182,19 @@ export function createApiRouter(db) {
               return res.json({ message: 'Orphaned tasks pruned.' });
           } 
           else if (action === 'purge_all') {
-              // Delete all lists and tasks. Users remain.
               await db('tasks').del();
               await db('list_shares').del();
               await db('lists').del();
               await db('sqlite_sequence').whereIn('name', ['tasks', 'lists']).update({ seq: 0 });
-              
               logActivity(db, 'WARN', 'Admin PURGED ALL DATA.');
               return res.json({ message: 'All lists and tasks deleted.' });
           }
           else if (action === 'reset_defaults') {
-              // Wipe data then re-seed
               await db('tasks').del();
               await db('list_shares').del();
               await db('lists').del();
               await db('sqlite_sequence').whereIn('name', ['tasks', 'lists']).update({ seq: 0 });
-              
               await seedDatabase(db, req.user.id);
-              
               logActivity(db, 'WARN', 'Admin RESET database to Default Demo Data.');
               return res.json({ message: 'Database reset to default demo data.' });
           }
@@ -213,13 +207,11 @@ export function createApiRouter(db) {
 
   // --- List Routes (Nested) ---
   router.get('/lists', authenticate, async (req, res) => {
-      // Get all lists user has access to
       const ownedLists = await db('lists').where('owner_id', req.user.id);
       const sharedListIds = await db('list_shares').where('user_id', req.user.id).pluck('list_id');
       const sharedLists = await db('lists').whereIn('id', sharedListIds);
       
       const allUserLists = [...ownedLists, ...sharedLists];
-      // Deduplicate
       const uniqueLists = Array.from(new Map(allUserLists.map(list => [list.id, list])).values());
       const allListIds = uniqueLists.map(l => l.id);
 
@@ -253,17 +245,11 @@ export function createApiRouter(db) {
     
     let validParentId = null;
     if (parentId) {
-        // Ensure parent exists and we have access
         const [parent] = await db('lists').where({ id: parentId, owner_id: req.user.id });
         if (!parent) return res.status(403).json({ message: "Cannot create sublist in a list you don't own." });
-        
-        // Rule: Sublist cannot contain another list (Max depth 1: Root -> Master -> Sublist)
         if (parent.parent_id) return res.status(409).json({ message: "Max nesting depth reached. Sublists cannot have sublists." });
-
-        // Rule: Parent cannot have tasks if it has children.
         const tasksInParent = await db('tasks').where({ list_id: parentId }).first();
         if (tasksInParent) return res.status(409).json({ message: "Parent list contains tasks. Cannot add sublists." });
-        
         validParentId = parentId;
     }
 
@@ -286,29 +272,28 @@ export function createApiRouter(db) {
   };
 
   router.put('/lists/:id', authenticate, canAccessList, async (req, res) => {
+      // PERMISSION: Only owner can modify structure (Move list)
+      if (!req.isOwner) return res.status(403).json({ message: 'Only owner can move/modify list structure.' });
+
       const { title, description, parentId } = req.body;
       const updateData = {};
+      
+      const currentList = req.list;
+      const oldParentId = currentList.parent_id;
+
       if(title !== undefined) updateData.title = title;
       if(description !== undefined) updateData.description = description;
       
       if (parentId !== undefined) {
           if (parentId === null) {
-              updateData.parent_id = null; // Move to Root
+              updateData.parent_id = null;
           } else {
-              // Can only move to a parent I own
               const [parent] = await db('lists').where({ id: parentId, owner_id: req.user.id });
               if (!parent) return res.status(403).json({ message: "Target parent not found or access denied." });
-              
-              // Rule: Target parent cannot be a sublist (Depth Limit)
               if (parent.parent_id) return res.status(409).json({ message: "Cannot move list into a sublist (Max depth 2 tiers)." });
-
-              // Rule: Target parent cannot contain tasks
               const parentTasks = await db('tasks').where({ list_id: parentId }).first();
               if (parentTasks) return res.status(409).json({ message: "Target list contains tasks. Cannot move list into it." });
-              
-              // Validate: I cannot move a list into one of its own children
               if (Number(parentId) === Number(req.params.id)) return res.status(400).json({ message: "Cannot move list into itself." });
-
               updateData.parent_id = parentId;
           }
       }
@@ -316,11 +301,53 @@ export function createApiRouter(db) {
       if (Object.keys(updateData).length > 0) {
           await db('lists').where('id', req.params.id).update(updateData);
       }
+      
+      // LOGIC: Share Inheritance when moving lists
+      // If a list is moved, we must ensure share consistency.
+      if (parentId !== undefined && parentId !== oldParentId) {
+          const listId = Number(req.params.id);
+          
+          // 1. New Parent Inheritance: If moved INTO a parent, that parent must be shared with users who access this child.
+          if (parentId) {
+              const currentShares = await db('list_shares').where({ list_id: listId });
+              for (const share of currentShares) {
+                  // Share the NEW parent with the user who has access to the child
+                  await db('list_shares').insert({ list_id: parentId, user_id: share.user_id }).onConflict().ignore();
+              }
+          }
+          
+          // 2. Old Parent Cleanup: If moved OUT OF a parent, remove access to old parent if user has no other siblings there.
+          if (oldParentId) {
+             const listShares = await db('list_shares').where({ list_id: listId });
+             
+             // For each user shared on this list
+             for (const share of listShares) {
+                 // Check if this user still has access to ANY siblings in the old parent
+                 const siblings = await db('lists').where({ parent_id: oldParentId }).whereNot({ id: listId });
+                 const siblingIds = siblings.map(s => s.id);
+                 
+                 let hasSiblingAccess = false;
+                 if (siblingIds.length > 0) {
+                    const sharedSiblings = await db('list_shares')
+                        .whereIn('list_id', siblingIds)
+                        .where({ user_id: share.user_id });
+                    if (sharedSiblings.length > 0) hasSiblingAccess = true;
+                 }
+                 
+                 if (!hasSiblingAccess) {
+                     // Remove share from OLD parent if they have no other reason to see it
+                     await db('list_shares').where({ list_id: oldParentId, user_id: share.user_id }).del();
+                 }
+             }
+          }
+      }
+
       const [updated] = await db('lists').where('id', req.params.id);
       res.json(updated);
   });
 
   router.post('/lists/:id/merge', authenticate, canAccessList, async (req, res) => {
+      // PERMISSION: Only owner can merge
       if (!req.isOwner) return res.status(403).json({ message: 'Only owner can merge lists.' });
       
       const sourceId = Number(req.params.id);
@@ -329,22 +356,16 @@ export function createApiRouter(db) {
       if (!targetId) return res.status(400).json({ message: 'Target list ID required.' });
       if (Number(targetId) === sourceId) return res.status(400).json({ message: 'Cannot merge list into itself.' });
 
-      // Check Target Access & Validity
       const [targetList] = await db('lists').where({ id: targetId });
       if (!targetList) return res.status(404).json({ message: 'Target list not found.' });
       if (targetList.owner_id !== req.user.id) return res.status(403).json({ message: 'Cannot merge into a list you do not own.' });
 
-      // Rule: Target List cannot have sublists (Must be able to accept tasks)
       const targetChildren = await db('lists').where({ parent_id: targetId }).first();
       if (targetChildren) return res.status(409).json({ message: 'Target list contains sublists. Cannot merge tasks into it.' });
 
-      // Perform Merge in Transaction
       try {
           await db.transaction(async (trx) => {
-              // 1. Move tasks
               await trx('tasks').where({ list_id: sourceId }).update({ list_id: targetId });
-              
-              // 2. Delete source list (Cascade should handle shares/etc, but explicit delete is safe)
               await trx('lists').where({ id: sourceId }).del();
           });
           res.status(200).json({ message: 'Lists merged successfully.' });
@@ -369,7 +390,15 @@ export function createApiRouter(db) {
       if (!req.isOwner) return res.status(403).json({ message: 'Only owner can share.' });
       const { userId } = req.body;
       
-      // RECURSIVE SHARING
+      // LOGIC: Upward Sharing
+      // If we share a sublist, we MUST share the parent (master list) so the user can see the hierarchy.
+      // But we do NOT share sibling sublists.
+      if (req.list.parent_id) {
+          await db('list_shares').insert({ list_id: req.list.parent_id, user_id: userId }).onConflict().ignore();
+      }
+
+      // LOGIC: Downward Recursive Sharing
+      // If we share a Master list, we share all sublists.
       const shareRecursively = async (listId) => {
           await db('list_shares').insert({ list_id: listId, user_id: userId }).onConflict().ignore();
           const children = await db('lists').where({ parent_id: listId });
@@ -385,21 +414,46 @@ export function createApiRouter(db) {
   router.delete('/lists/:id/shares/:userId', authenticate, canAccessList, async (req, res) => {
       if (!req.isOwner) return res.status(403).json({ message: 'Only owner can unshare.' });
       
-      // RECURSIVE UNSHARING
-      const unshareRecursively = async (listId) => {
-          await db('list_shares').where({ list_id: listId, user_id: req.params.userId }).del();
-          const children = await db('lists').where({ parent_id: listId });
+      const targetUserId = req.params.userId;
+      const listId = req.params.id;
+
+      const unshareRecursively = async (lid) => {
+          await db('list_shares').where({ list_id: lid, user_id: targetUserId }).del();
+          const children = await db('lists').where({ parent_id: lid });
           for (const child of children) {
               await unshareRecursively(child.id);
           }
       };
       
-      await unshareRecursively(req.params.id);
+      await unshareRecursively(listId);
+
+      // Clean up parent share if it's a container and no other children are shared
+      if (req.list.parent_id) {
+          const parentId = req.list.parent_id;
+          // Check if parent is a container (it is, because it has children - at least this one)
+          // Check if user still has access to ANY siblings
+          const siblings = await db('lists').where({ parent_id: parentId }).whereNot({ id: listId });
+          const siblingIds = siblings.map(s => s.id);
+          
+          let hasSiblingAccess = false;
+          if (siblingIds.length > 0) {
+               const sharedSiblings = await db('list_shares')
+                  .whereIn('list_id', siblingIds)
+                  .where({ user_id: targetUserId });
+               if (sharedSiblings.length > 0) hasSiblingAccess = true;
+          }
+          
+          if (!hasSiblingAccess) {
+              // User has no access to other siblings.
+              // Remove share from parent.
+              await db('list_shares').where({ list_id: parentId, user_id: targetUserId }).del();
+          }
+      }
+
       res.status(204).send();
   });
 
   router.post('/lists/:listId/tasks', authenticate, canAccessList, async (req, res) => {
-      // Validate: List cannot have tasks if it has children
       const children = await db('lists').where({ parent_id: req.params.listId }).first();
       if (children) return res.status(409).json({ message: "This list contains sublists. It cannot contain tasks." });
 
@@ -431,21 +485,63 @@ export function createApiRouter(db) {
       res.status(201).send();
   });
   
+  // NEW Endpoint: Copy/Move Task
+  router.post('/tasks/:taskId/copy', authenticate, async (req, res) => {
+      const { taskId } = req.params;
+      const { targetListId, move } = req.body;
+
+      if (!targetListId) return res.status(400).json({message: "Target list required"});
+
+      // Source Access
+      const [task] = await db('tasks').where('id', taskId);
+      if(!task) return res.status(404).json({message: 'Task not found'});
+      
+      const [sourceList] = await db('lists').where('id', task.list_id);
+      const isSourceOwner = sourceList.owner_id === req.user.id;
+      const isSourceShared = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
+      if (!isSourceOwner && !isSourceShared) return res.status(403).json({ message: 'Source access denied' });
+
+      // Target Access (Must have write access)
+      const [targetList] = await db('lists').where('id', targetListId);
+      if(!targetList) return res.status(404).json({message: 'Target list not found'});
+      const isTargetOwner = targetList.owner_id === req.user.id;
+      const isTargetShared = await db('list_shares').where({ list_id: targetListId, user_id: req.user.id }).first();
+      if (!isTargetOwner && !isTargetShared) return res.status(403).json({ message: 'Target access denied' });
+
+      // Validate Target is not a container
+      const targetChildren = await db('lists').where({ parent_id: targetListId }).first();
+      if (targetChildren) return res.status(409).json({ message: "Target list contains sublists. Cannot add tasks." });
+
+      if (move) {
+          // Move: Update list_id
+          await db('tasks').where('id', taskId).update({ list_id: targetListId });
+      } else {
+          // Copy: Insert new
+          await db('tasks').insert({
+              description: task.description,
+              completed: task.completed,
+              dueDate: task.dueDate,
+              created_at: new Date(),
+              importance: task.importance,
+              list_id: targetListId,
+              pinned: task.pinned
+          });
+      }
+      res.status(200).send();
+  });
+
   router.put('/tasks/:taskId', authenticate, async (req, res) => {
     const { taskId } = req.params;
     const { description, completed, dueDate, importance, dependsOn, pinned } = req.body;
     
-    // Auth check
     const [task] = await db('tasks').where('id', taskId);
     if(!task) return res.status(404).json({message: 'Task not found'});
     
-    // Check list access
     const [list] = await db('lists').where('id', task.list_id);
     const isOwner = list.owner_id === req.user.id;
     const isShared = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
     if (!isOwner && !isShared) return res.status(403).json({ message: 'Access denied' });
 
-    // Dependencies Logic
     if (dependsOn !== undefined && dependsOn !== null) {
         if (Number(dependsOn) === Number(taskId)) return res.status(409).json({ message: "Self-dependency not allowed." });
         const [depTask] = await db('tasks').where('id', dependsOn);

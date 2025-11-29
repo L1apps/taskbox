@@ -15,6 +15,7 @@ export interface Task {
   importance: number; // 0: Low, 1: Medium, 2: High
   dependsOn?: number | null;
   pinned: boolean;
+  list_id?: number; // Added for search results context
 }
 
 export interface TaskList {
@@ -54,4 +55,24 @@ export interface LogEntry {
     timestamp: string;
     level: 'INFO' | 'WARN' | 'ERROR';
     message: string;
+}
+
+export type ModalType = 
+    | 'ADD_LIST' 
+    | 'MOVE_LIST' 
+    | 'MERGE_LIST' 
+    | 'RENAME_LIST' 
+    | 'ABOUT' 
+    | 'STATS' 
+    | 'ADMIN' 
+    | 'USER_SETTINGS' 
+    | 'IMPORT' 
+    | 'PASTE' 
+    | 'EXPORT' 
+    | 'SHARE_LIST' 
+    | 'COPY_TASK';
+
+export interface ModalData {
+    type: ModalType;
+    props?: any;
 }

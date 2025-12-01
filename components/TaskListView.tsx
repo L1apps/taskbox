@@ -33,18 +33,28 @@ const TaskListView: React.FC = () => {
   const list = activeList;
   const isContainer = list.children && list.children.length > 0;
   const tasks = list.tasks || [];
+  const isEmpty = tasks.length === 0;
 
   const handlePurgeCompleted = () => { 
       if(window.confirm('Purge completed?')) { 
           apiFetch(`/api/lists/${activeList.id}/tasks/completed`, {method:'DELETE'}).then(fetchData); 
       }
   };
+  
+  const handlePrint = () => {
+      window.print();
+  };
 
   const handleToggleAllTasks = async (completed: boolean) => {
-      for(const t of activeList.tasks.filter(x => x.completed !== completed)) {
-          await apiFetch(`/api/tasks/${t.id}`, { method: 'PUT', body: JSON.stringify({...t, completed})}); 
+      try {
+          await apiFetch(`/api/lists/${activeList.id}/tasks/bulk-status`, {
+              method: 'PUT',
+              body: JSON.stringify({ completed })
+          });
+          fetchData();
+      } catch (e) {
+          console.error("Failed to toggle tasks", e);
       }
-      fetchData(); 
   };
 
   const sortedAndFilteredTasks = useMemo(() => {
@@ -122,10 +132,11 @@ const TaskListView: React.FC = () => {
     return [...sortedPinned, ...sortedUnpinned];
   }, [tasks, sort, showCompleted, localSearch]);
 
-  const completionPercentage = useMemo(() => {
-    if (tasks.length === 0) return 0;
+  const completionStats = useMemo(() => {
+    if (tasks.length === 0) return { percent: 0, completed: 0, total: 0 };
     const completedCount = tasks.filter(t => t.completed).length;
-    return Math.round((completedCount / tasks.length) * 100);
+    const percent = Math.round((completedCount / tasks.length) * 100);
+    return { percent, completed: completedCount, total: tasks.length };
   }, [tasks]);
   
   const allVisibleCompleted = useMemo(() => {
@@ -159,12 +170,17 @@ const TaskListView: React.FC = () => {
     <div className="p-4 sm:p-6 flex flex-col h-full relative">
       {/* List Header - Always visible */}
       <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className={`text-2xl sm:text-3xl font-bold ${isOrange ? '' : 'text-gray-900 dark:text-white'}`}>{list.title}</h2>
+          <div className="w-full">
+            {/* Print Only Header */}
+            <div className="hidden print-visible pb-4 mb-4 border-b border-black w-full">
+                <h1 className="text-2xl font-bold text-black">{list.title}</h1>
+            </div>
+            
+            <h2 className={`text-2xl sm:text-3xl font-bold print-hidden ${isOrange ? '' : 'text-gray-900 dark:text-white'}`}>{list.title}</h2>
           </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center flex-wrap">
+      <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center flex-wrap no-print">
           {/* Bulk Toggle */}
           <Tooltip text="Check or Uncheck all" align="left">
               <button
@@ -207,6 +223,7 @@ const TaskListView: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 sm:ml-auto">
+              
               {/* Show Completed Icon Toggle */}
               <Tooltip text={showCompleted ? "Hide Completed Tasks" : "Show Completed Tasks"}>
                   <button
@@ -229,6 +246,21 @@ const TaskListView: React.FC = () => {
                   </button>
               </Tooltip>
 
+              {/* Print Button - Only for task lists, not containers. Also disabled if empty. */}
+              {!isContainer && (
+                <Tooltip text={isEmpty ? "List is empty" : "Print List"}>
+                     <button
+                        onClick={handlePrint}
+                        disabled={isEmpty}
+                        className={`p-2 rounded-md border transition-colors ${isOrange ? 'border-gray-600 hover:bg-gray-800 text-gray-500 hover:text-orange-400' : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-500 hover:text-blue-500'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                     >
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                             <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                         </svg>
+                     </button>
+                </Tooltip>
+              )}
+
               <button
                   onClick={handlePurgeCompleted}
                   disabled={!hasCompletedTasks}
@@ -241,7 +273,7 @@ const TaskListView: React.FC = () => {
       </div>
 
       {/* Sortable Header Row */}
-      <div className={`hidden md:flex items-center px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 mb-2 ${headerTextColor}`}>
+      <div className={`hidden md:flex items-center px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 mb-2 ${headerTextColor} no-print`}>
           <div className="w-10 text-center mr-3 cursor-pointer hover:text-blue-500 flex items-center justify-center group" onClick={() => handleSortClick(SortOption.COMPLETED_ASC, SortOption.COMPLETED_DESC)}>Status {getSortIcon(SortOption.COMPLETED_ASC, SortOption.COMPLETED_DESC)}</div>
           <div className="w-20 text-center mx-3 cursor-pointer hover:text-blue-500 flex items-center justify-center group" onClick={() => handleSortClick(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}>Priority {getSortIcon(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}</div>
           <div className="flex-grow min-w-[150px] cursor-pointer hover:text-blue-500 flex items-center group" onClick={() => handleSortClick(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}>Task Description {getSortIcon(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}</div>
@@ -266,7 +298,7 @@ const TaskListView: React.FC = () => {
           {sortedAndFilteredTasks.length === 0 && <div className="text-center py-8 text-gray-500">No tasks match your criteria.</div>}
       </div>
 
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 shrink-0 no-print">
           <AddTaskForm 
             onAddTask={(desc) => addTask(list.id, desc)} 
             onWarning={setWarningMessage} 
@@ -275,12 +307,14 @@ const TaskListView: React.FC = () => {
             isContainer={isContainer} 
           />
           <div className="mt-4">
-              <div className="flex justify-between mb-1">
-              <span className={`text-base font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>Completion</span>
-              <span className={`text-sm font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>{completionPercentage}%</span>
+              <div className="flex justify-between mb-1 items-baseline">
+                <span className={`text-base font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>
+                    Completion <span className="text-xs text-gray-500 font-normal ml-1">({completionStats.completed} out of {completionStats.total})</span>
+                </span>
+                <span className={`text-sm font-medium ${isOrange ? '' : 'text-gray-700 dark:text-white'}`}>{completionStats.percent}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-              <div className={`${progressColor} h-2.5 rounded-full`} style={{ width: `${completionPercentage}%` }}></div>
+              <div className={`${progressColor} h-2.5 rounded-full`} style={{ width: `${completionStats.percent}%` }}></div>
               </div>
           </div>
       </div>

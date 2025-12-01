@@ -24,6 +24,7 @@ export interface TaskList {
   description: string;
   parentId: number | null; // Replaces folderId
   tasks: Task[];
+  pinned?: boolean; // Added for list pinning
   children?: TaskListWithUsers[]; // For nested structure
 }
 

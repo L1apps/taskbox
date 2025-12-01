@@ -25,3 +25,77 @@
 .theme-orange .input-theme {
     @apply bg-gray-800 text-gray-100 border-gray-600;
 }
+
+@media print {
+    /* Set Global Print Font */
+    body, main, div, span, p {
+        font-family: Arial, sans-serif !important;
+        font-size: 11pt !important;
+    }
+
+    /* Hide everything by default, then selectively show items */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Important: Override general hidden to show print content */
+    .print-visible, .print-visible * {
+        visibility: visible !important;
+        display: block !important;
+    }
+    
+    .print-visible.flex {
+        display: flex !important;
+    }
+    
+    /* Strict hiding for non-print elements */
+    .print-hidden, .no-print, header, footer, aside, button, input[type="text"] {
+        display: none !important;
+    }
+
+    /* Reset background colors for print to save ink and ensure legibility */
+    body, #root, main, div {
+        background-color: white !important;
+        color: black !important;
+    }
+
+    /* Reset positioning to ensure flow */
+    #root {
+        position: static !important;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: visible !important;
+    }
+    
+    /* Target the main content area */
+    main {
+        visibility: visible !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Hide Sidebar explicitly if structural HTML allows */
+    main > div > div:first-child { 
+        display: none !important; 
+    }
+    
+    /* Adjust main content width to full page */
+    main > div > div:last-child {
+        width: 100% !important;
+        border: none !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    
+    /* Hide scrollbars */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}

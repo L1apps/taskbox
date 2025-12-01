@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.9.1
+**Version:** 3.9.5
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -85,7 +85,9 @@ If you wish to test the latest features before they are marked as stable, you ca
 ## Features
 
 *   **Global Search:** Instantly find tasks across all your lists using the search bar in the header.
+*   **List Sorting & Pinning:** Sort lists by name and pin important lists to the top.
 *   **Duplicate Prevention:** Strict checks during paste/import to prevent creating duplicate tasks.
+*   **Printing:** Clean print view for tasks (e.g., Grocery Lists).
 *   **Context-Aware Architecture:** Faster performance and smoother state management.
 *   **Clipboard Management:** Copy active lists to clipboard (All Data or Descriptions Only) or paste tasks easily.
 *   **Sidebar Toolbar:** Centralized control for list actions (Rename, Share, Move, Merge, Delete).
@@ -99,6 +101,7 @@ If you wish to test the latest features before they are marked as stable, you ca
 *   **User Settings:** Change username, password, and session timeout.
 *   **Admin Panel:** Create/Delete users, reset passwords, and view/clear security logs.
 *   **Database Maintenance:** Prune orphans, Purge all data, and Vacuum database.
+*   **Database Backup/Restore:** Download full backups or restore DB via file upload (Admin only).
 *   **Duplicate Checker:** Real-time warning if a task description already exists.
 *   **Pinned Tasks:** Pin important tasks to the top.
 *   **3-Level Importance:** Low, Medium, High importance flags.
@@ -138,6 +141,10 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
+*   **v3.9.5:** Database Backup/Restore (Import/Export), Print font/layout fixes.
+*   **v3.9.4:** Enhanced Printing (Clean Checklist), Stats Sorting, UI Improvements.
+*   **v3.9.3:** Performance optimization (Batch actions), Print CSS fixes, React Rendering tweaks.
+*   **v3.9.2:** List Sorting, List Pinning, Printer-friendly view, Improved Folder/Stats behavior.
 *   **v3.9.1:** Duplicate prevention, UI Polish (Clear Search, Icon Layout), "Descriptions Only" copy option.
 *   **v3.9.0:** Major Refactor (Context API), Global Search, Enhanced Copy/Paste, UX Fixes.
 *   **v3.8.0:** Copy/Move Tasks to other lists, Upward Sharing Logic, Strict Owner Permissions, Docker Labels.

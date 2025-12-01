@@ -101,7 +101,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
   const inputTextColor = isOrange ? 'text-gray-900' : '';
   const readOnlyTextColor = isOrange ? 'text-gray-900' : 'text-gray-900 dark:text-gray-100';
   
-  const availableDependencies = allTasksInList.filter(t => t.id !== task.id && !t.pinned);
+  // Fix: Allowed pinned tasks to appear in dependency dropdown
+  const availableDependencies = allTasksInList.filter(t => t.id !== task.id);
 
   const CheckboxWrapper = ({ children }: { children: React.ReactNode }) => {
     if (isDependencyIncomplete && dependencyTask) {
@@ -115,7 +116,9 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
     : '-';
 
   return (
-    <div className={`flex flex-col md:flex-row md:items-center p-3 rounded-lg transition-colors gap-2 md:gap-0 ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))}`}>
+    <>
+    {/* Screen View */}
+    <div className={`print-hidden flex flex-col md:flex-row md:items-center p-3 rounded-lg transition-colors gap-2 md:gap-0 ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))}`}>
       
       {/* Left Group */}
       <div className="flex items-center">
@@ -217,6 +220,20 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
         </Tooltip>
       </div>
     </div>
+
+    {/* Print View Only - Clean Simple Line with Fixed Checkbox Size */}
+    <div className="hidden print-visible flex items-start py-2 border-b border-gray-300">
+        <div 
+            className="border-2 border-black mr-4 flex items-center justify-center text-black shrink-0" 
+            style={{ width: '16px', height: '16px', marginTop: '4px' }}
+        >
+            {task.completed && <span className="font-bold text-lg leading-none" style={{ fontSize: '14px' }}>✓</span>}
+        </div>
+        <div className="flex-grow text-black text-lg">
+             {task.description}
+        </div>
+    </div>
+    </>
   );
 };
 

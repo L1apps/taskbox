@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import type { Task, TaskListWithUsers, Theme, User } from '../types';
 import { parseTasksFromFile } from '../utils/csvImporter';
 
@@ -84,6 +85,10 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [needsSetup, setNeedsSetup] = useState(false);
     const [authLoaded, setAuthLoaded] = useState(false);
 
+    // Refs to break dependency cycles
+    const activeListIdRef = useRef(activeListId);
+    useEffect(() => { activeListIdRef.current = activeListId; }, [activeListId]);
+
     const setToken = (t: string | null) => {
         if (t) localStorage.setItem('taskbox-token', t);
         else localStorage.removeItem('taskbox-token');
@@ -140,8 +145,9 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
             setLists(data);
             
             // Only auto-select if no list is active OR active list was deleted
+            const currentActiveId = activeListIdRef.current;
             if (data.length > 0) {
-                 if (activeListId === null || !data.find((l: any) => l.id === activeListId)) {
+                 if (currentActiveId === null || !data.find((l: any) => l.id === currentActiveId)) {
                      setActiveListId(data[0].id);
                  }
             } else {
@@ -149,7 +155,7 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
             }
         } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
         finally { setLoading(false); }
-    }, [user, apiFetch, activeListId]);
+    }, [user, apiFetch]); // Removed activeListId from dependency array
 
     useEffect(() => { fetchData(); }, [user, fetchData]);
 

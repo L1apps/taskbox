@@ -3,6 +3,52 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [3.9.5] - 2025-09-26
+### Added
+- **Database Backup & Restore:** 
+    - Admins can now download a full backup of the `taskbox.db` file from the Admin Panel.
+    - Admins can upload a database file to restore it. The server automatically restarts after a successful restore to apply changes.
+    - **Note:** This feature is critical for self-hosted maintenance.
+
+### Changed
+- **Printing:** 
+    - The "Print" button is now disabled if the list contains 0 tasks.
+    - Standardized print font to **Arial 11pt** for better readability.
+    - Fixed the print checkbox size to a consistent `16px` regardless of task content or flex alignment.
+- **Server:** Increased upload payload limit to 100MB to support restoring large database files.
+
+## [3.9.4] - 2025-09-24
+### Changed
+- **Printing:** Completely redesigned print output. It now strips all UI elements (icons, headers) and renders a clean, ink-friendly checklist format with description and due dates.
+- **Sidebar:** Removed the "Float Active List" behavior. Clicking a list no longer jumps it to the top of the sidebar, fixing confusion with the Pinning system.
+- **Statistics:** 
+    - Added sorting to the Per-List Breakdown table (sort by Title, Count, Overdue, Completion).
+    - Bolded the disclaimer footer text.
+- **UI:** The "Print" button is now hidden for Container lists (lists of sublists) as they have no tasks to print.
+
+## [3.9.3] - 2025-09-22
+### Changed
+- **Performance:** Optimized "Check/Uncheck All" feature. It now uses a single batched API call instead of firing individual requests for every task, significantly reducing server load and network lag.
+- **Printing:** Fixed CSS issue where printed pages would sometimes show blank space instead of hiding the sidebar effectively. Printing now uses `display: none` for cleaner output.
+- **Rendering:** Optimized Sidebar rendering using React Memoization to prevent unnecessary re-renders of the entire list tree when interacting with tasks.
+
+## [3.9.2] - 2025-09-20
+### Added
+- **List Sorting:** Added a toggle button to the sidebar to sort lists Alphabetically (A-Z / Z-A).
+- **List Pinning:** Added ability to "Pin" Master Lists to the top of the sidebar.
+- **Printing:** Added a print icon to the task toolbar that formats the list cleanly for printing (hides sidebar/header).
+- **Active List Visibility:** The currently active Master List now automatically floats to the top of the view (below pinned items) for easier access.
+- **Folder Controls:** Added an "Expand/Collapse All" button for folders.
+
+### Changed
+- **Folder Behavior:** 
+    - Master lists (folders) now default to **collapsed** when the app loads or new lists are created.
+    - Fixed issue where opening one folder would open others.
+- **Statistics:** 
+    - Made the Statistics modal scrollable to support large numbers of lists.
+    - Lists in statistics are now sorted by Completion Percentage (Descending).
+- **Database:** Added a migration to support the new `pinned` status for lists safely.
+
 ## [3.9.1] - 2025-09-17
 ### Added
 - **Duplicate Prevention:** Implemented strict checks when importing tasks via Paste/File. Tasks with descriptions that match existing tasks in the list are filtered out automatically to prevent duplicates.

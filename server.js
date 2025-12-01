@@ -13,7 +13,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+// Increased limit to 100mb to support Database Restore uploads
+app.use(express.json({ limit: '100mb' }));
 
 
 async function startServer() {

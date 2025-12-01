@@ -38,6 +38,7 @@ TaskBox uses a strict 2-level hierarchy to keep organization clean:
 *   **Pin:** Click the pin icon to stick the task to the top of the list, regardless of sorting.
 *   **Dependencies:** Use the dropdown on the right of a task to select a prerequisite. You cannot complete a task until its dependency is finished.
 *   **Copy/Move:** Hover over a task description and click the "Copy" icon (two sheets of paper) to copy or move the task to another list.
+*   **Print:** Click the printer icon in the toolbar. This generates a minimalist checklist view (hiding all app interfaces, icons, and menus) perfect for grocery lists or hardcopy reports. Note: Printing is only available for lists containing tasks (not containers) and is disabled for empty lists.
 
 ### 📂 List Actions
 Hover over the list name or look at the sidebar toolbar to access actions:
@@ -59,6 +60,9 @@ Hover over the list name or look at the sidebar toolbar to access actions:
 Accessible only to the Admin user via the shield icon in the header.
 *   **User Management:** Create new users, delete users, or reset their passwords.
 *   **Activity Log:** Audit trail of logins, critical deletions, and security events.
+*   **Database Management:**
+    *   *Export Backup:* Download the full SQLite database file for safe keeping.
+    *   *Restore Backup:* Upload a `.db` file to overwrite the current database. The server will automatically restart to apply the restore.
 *   **Maintenance:**
     *   *Vacuum:* Optimizes the SQLite database size.
     *   *Prune:* Deletes orphaned data.

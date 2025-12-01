@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Modal from './Modal';
 import type { TaskList, Theme } from '../types';
 
@@ -8,6 +8,8 @@ interface StatsModalProps {
   lists: TaskList[];
   theme: Theme;
 }
+
+type SortField = 'title' | 'total' | 'overdue' | 'completionPercentage';
 
 const StatCard: React.FC<{ label: string; value: string | number; className?: string; theme: Theme }> = ({ label, value, className = '', theme }) => {
     // Explicitly force text color for Orange theme to ensure visibility against dark bg
@@ -36,9 +38,19 @@ const ProgressBar: React.FC<{ percentage: number; theme: Theme }> = ({ percentag
 const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
   const isOrange = theme === 'orange';
   const cardBg = isOrange ? 'bg-gray-800' : 'bg-gray-100 dark:bg-gray-700';
-  
-  // Header text colors
   const headerTextColor = isOrange ? 'text-gray-100' : 'text-gray-800 dark:text-gray-100';
+
+  const [sortField, setSortField] = useState<SortField>('completionPercentage');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: SortField) => {
+      if (sortField === field) {
+          setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      } else {
+          setSortField(field);
+          setSortDirection('desc');
+      }
+  };
 
   const stats = useMemo(() => {
     const allTasks = lists.flatMap(list => list.tasks || []);
@@ -57,7 +69,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
       return false;
     }).length;
 
-    const perListStats = lists
+    let perListStats = lists
       .filter(list => list.tasks && list.tasks.length > 0) // Filter out empty lists or containers
       .map(list => {
       const listTasks = list.tasks || [];
@@ -81,6 +93,22 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
       };
     });
 
+    // Sorting Logic
+    perListStats.sort((a, b) => {
+        let valA = a[sortField];
+        let valB = b[sortField];
+
+        // String comparison for title
+        if (sortField === 'title') {
+            valA = (valA as string).toLowerCase();
+            valB = (valB as string).toLowerCase();
+        }
+
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+
     return {
       totalLists: lists.length,
       totalTasks,
@@ -90,11 +118,16 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
       overallCompletion: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
       perListStats,
     };
-  }, [lists]);
+  }, [lists, sortField, sortDirection]);
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+      if (sortField !== field) return <span className="ml-1 opacity-25">↕</span>;
+      return <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
+  };
 
   return (
     <Modal title="Task Statistics" onClose={onClose} theme={theme}>
-      <div className="space-y-6 text-sm">
+      <div className="space-y-6 text-sm max-h-[80vh] overflow-y-auto pr-2">
         <div>
           <h3 className={`text-lg font-semibold mb-3 ${headerTextColor}`}>Overall Statistics</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -116,12 +149,20 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
             <h3 className={`text-lg font-semibold mb-3 ${headerTextColor}`}>Per-List Breakdown</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 cursor-pointer select-none">
                   <tr>
-                    <th scope="col" className="px-4 py-3">List Title</th>
-                    <th scope="col" className="px-4 py-3 text-center">Total Tasks</th>
-                    <th scope="col" className="px-4 py-3 text-center">Overdue</th>
-                    <th scope="col" className="px-4 py-3">Completion</th>
+                    <th scope="col" className="px-4 py-3 hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('title')}>
+                        List Title <SortIcon field="title" />
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-center hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('total')}>
+                        Total Tasks <SortIcon field="total" />
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-center hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('overdue')}>
+                        Overdue <SortIcon field="overdue" />
+                    </th>
+                    <th scope="col" className="px-4 py-3 hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('completionPercentage')}>
+                        Completion <SortIcon field="completionPercentage" />
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -143,7 +184,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
                 </tbody>
               </table>
             </div>
-            <p className={`text-xs mt-2 italic ${isOrange ? 'text-gray-500' : 'text-gray-400'}`}>* Only lists containing tasks are included in the breakdown.</p>
+            <p className={`text-xs mt-2 italic font-bold ${isOrange ? 'text-gray-400' : 'text-gray-500'}`}>* Only lists containing tasks are included in the breakdown. Sorted by completion.</p>
           </div>
         ) : (
             <div className="pt-4 border-t dark:border-gray-700 text-center text-gray-500">

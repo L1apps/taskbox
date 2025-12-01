@@ -2,11 +2,14 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
 import { seedDatabase } from './database.js'; // Import seeding function
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-that-should-be-in-an-env-file';
 const DEFAULT_SESSION_TIMEOUT = process.env.SESSION_TIMEOUT || '7d';
 const SALT_ROUNDS = 10;
+const DB_PATH = process.env.NODE_ENV === 'production' ? '/app/data/taskbox.db' : './data/taskbox.db';
 
 const logActivity = (db, level, message) => {
     db('activity_log').insert({ level, message })
@@ -165,6 +168,43 @@ export function createApiRouter(db) {
       await db('activity_log').del();
       res.status(204).send();
   });
+  
+  // Database Backup
+  router.get('/admin/backup', authenticate, adminOnly, (req, res) => {
+      if (fs.existsSync(DB_PATH)) {
+          logActivity(db, 'INFO', 'Admin downloaded database backup.');
+          res.download(DB_PATH, 'taskbox.db');
+      } else {
+          res.status(404).json({ message: 'Database file not found.' });
+      }
+  });
+
+  // Database Restore
+  router.post('/admin/restore', authenticate, adminOnly, async (req, res) => {
+      const { fileData } = req.body;
+      if (!fileData) return res.status(400).json({ message: 'No file data provided.' });
+
+      try {
+          const buffer = Buffer.from(fileData, 'base64');
+          // Write the new DB file
+          fs.writeFileSync(DB_PATH, buffer);
+          
+          logActivity(db, 'WARN', 'Admin restored database from backup. Restarting...');
+          
+          // Respond success first
+          res.json({ message: 'Database restored successfully. Server restarting...' });
+          
+          // Trigger restart to reload DB connection
+          setTimeout(() => {
+              console.log("Restarting server for DB restore...");
+              process.exit(0);
+          }, 1000);
+          
+      } catch (e) {
+          console.error('Restore failed:', e);
+          res.status(500).json({ message: 'Restore failed: ' + e.message });
+      }
+  });
 
   router.post('/admin/maintenance', authenticate, adminOnly, async (req, res) => {
       const { action } = req.body;
@@ -230,6 +270,7 @@ export function createApiRouter(db) {
           const rawTasks = tasks.filter(task => task.list_id === list.id).sort((a,b) => a.id - b.id);
           return {
               ...list,
+              pinned: Boolean(list.pinned),
               ownerId: list.owner_id,
               parentId: list.parent_id,
               tasks: rawTasks.map(normalizeTask),
@@ -253,9 +294,9 @@ export function createApiRouter(db) {
         validParentId = parentId;
     }
 
-    const [insertedId] = await db('lists').insert({ title, description, owner_id: req.user.id, parent_id: validParentId });
+    const [insertedId] = await db('lists').insert({ title, description, owner_id: req.user.id, parent_id: validParentId, pinned: false });
     const [newList] = await db('lists').where({ id: insertedId });
-    res.status(201).json({ ...newList, ownerId: newList.owner_id, parentId: newList.parent_id, tasks: [], sharedWith: [] });
+    res.status(201).json({ ...newList, pinned: false, ownerId: newList.owner_id, parentId: newList.parent_id, tasks: [], sharedWith: [] });
   });
 
   const canAccessList = async (req, res, next) => {
@@ -273,9 +314,11 @@ export function createApiRouter(db) {
 
   router.put('/lists/:id', authenticate, canAccessList, async (req, res) => {
       // PERMISSION: Only owner can modify structure (Move list)
-      if (!req.isOwner) return res.status(403).json({ message: 'Only owner can move/modify list structure.' });
+      if (!req.isOwner) {
+          return res.status(403).json({ message: 'Only owner can modify list settings.' });
+      }
 
-      const { title, description, parentId } = req.body;
+      const { title, description, parentId, pinned } = req.body;
       const updateData = {};
       
       const currentList = req.list;
@@ -283,6 +326,7 @@ export function createApiRouter(db) {
 
       if(title !== undefined) updateData.title = title;
       if(description !== undefined) updateData.description = description;
+      if(pinned !== undefined) updateData.pinned = pinned;
       
       if (parentId !== undefined) {
           if (parentId === null) {
@@ -303,26 +347,19 @@ export function createApiRouter(db) {
       }
       
       // LOGIC: Share Inheritance when moving lists
-      // If a list is moved, we must ensure share consistency.
       if (parentId !== undefined && parentId !== oldParentId) {
           const listId = Number(req.params.id);
           
-          // 1. New Parent Inheritance: If moved INTO a parent, that parent must be shared with users who access this child.
           if (parentId) {
               const currentShares = await db('list_shares').where({ list_id: listId });
               for (const share of currentShares) {
-                  // Share the NEW parent with the user who has access to the child
                   await db('list_shares').insert({ list_id: parentId, user_id: share.user_id }).onConflict().ignore();
               }
           }
           
-          // 2. Old Parent Cleanup: If moved OUT OF a parent, remove access to old parent if user has no other siblings there.
           if (oldParentId) {
              const listShares = await db('list_shares').where({ list_id: listId });
-             
-             // For each user shared on this list
              for (const share of listShares) {
-                 // Check if this user still has access to ANY siblings in the old parent
                  const siblings = await db('lists').where({ parent_id: oldParentId }).whereNot({ id: listId });
                  const siblingIds = siblings.map(s => s.id);
                  
@@ -335,7 +372,6 @@ export function createApiRouter(db) {
                  }
                  
                  if (!hasSiblingAccess) {
-                     // Remove share from OLD parent if they have no other reason to see it
                      await db('list_shares').where({ list_id: oldParentId, user_id: share.user_id }).del();
                  }
              }
@@ -347,7 +383,6 @@ export function createApiRouter(db) {
   });
 
   router.post('/lists/:id/merge', authenticate, canAccessList, async (req, res) => {
-      // PERMISSION: Only owner can merge
       if (!req.isOwner) return res.status(403).json({ message: 'Only owner can merge lists.' });
       
       const sourceId = Number(req.params.id);
@@ -385,20 +420,31 @@ export function createApiRouter(db) {
       await db('tasks').where({ list_id: req.params.listId, completed: true }).del();
       res.status(204).send();
   });
+  
+  // NEW Endpoint: Bulk status update
+  router.put('/lists/:listId/tasks/bulk-status', authenticate, canAccessList, async (req, res) => {
+      const { completed } = req.body;
+      if (typeof completed !== 'boolean') return res.status(400).json({ message: "Completed status required." });
+      
+      try {
+          await db('tasks')
+            .where({ list_id: req.params.listId })
+            .update({ completed });
+          res.status(200).send();
+      } catch (e) {
+          console.error(e);
+          res.status(500).json({ message: "Bulk update failed." });
+      }
+  });
 
   router.post('/lists/:id/shares', authenticate, canAccessList, async (req, res) => {
       if (!req.isOwner) return res.status(403).json({ message: 'Only owner can share.' });
       const { userId } = req.body;
       
-      // LOGIC: Upward Sharing
-      // If we share a sublist, we MUST share the parent (master list) so the user can see the hierarchy.
-      // But we do NOT share sibling sublists.
       if (req.list.parent_id) {
           await db('list_shares').insert({ list_id: req.list.parent_id, user_id: userId }).onConflict().ignore();
       }
 
-      // LOGIC: Downward Recursive Sharing
-      // If we share a Master list, we share all sublists.
       const shareRecursively = async (listId) => {
           await db('list_shares').insert({ list_id: listId, user_id: userId }).onConflict().ignore();
           const children = await db('lists').where({ parent_id: listId });
@@ -427,11 +473,8 @@ export function createApiRouter(db) {
       
       await unshareRecursively(listId);
 
-      // Clean up parent share if it's a container and no other children are shared
       if (req.list.parent_id) {
           const parentId = req.list.parent_id;
-          // Check if parent is a container (it is, because it has children - at least this one)
-          // Check if user still has access to ANY siblings
           const siblings = await db('lists').where({ parent_id: parentId }).whereNot({ id: listId });
           const siblingIds = siblings.map(s => s.id);
           
@@ -444,8 +487,6 @@ export function createApiRouter(db) {
           }
           
           if (!hasSiblingAccess) {
-              // User has no access to other siblings.
-              // Remove share from parent.
               await db('list_shares').where({ list_id: parentId, user_id: targetUserId }).del();
           }
       }
@@ -485,14 +526,12 @@ export function createApiRouter(db) {
       res.status(201).send();
   });
   
-  // NEW Endpoint: Copy/Move Task
   router.post('/tasks/:taskId/copy', authenticate, async (req, res) => {
       const { taskId } = req.params;
       const { targetListId, move } = req.body;
 
       if (!targetListId) return res.status(400).json({message: "Target list required"});
 
-      // Source Access
       const [task] = await db('tasks').where('id', taskId);
       if(!task) return res.status(404).json({message: 'Task not found'});
       
@@ -501,22 +540,18 @@ export function createApiRouter(db) {
       const isSourceShared = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
       if (!isSourceOwner && !isSourceShared) return res.status(403).json({ message: 'Source access denied' });
 
-      // Target Access (Must have write access)
       const [targetList] = await db('lists').where('id', targetListId);
       if(!targetList) return res.status(404).json({message: 'Target list not found'});
       const isTargetOwner = targetList.owner_id === req.user.id;
       const isTargetShared = await db('list_shares').where({ list_id: targetListId, user_id: req.user.id }).first();
       if (!isTargetOwner && !isTargetShared) return res.status(403).json({ message: 'Target access denied' });
 
-      // Validate Target is not a container
       const targetChildren = await db('lists').where({ parent_id: targetListId }).first();
       if (targetChildren) return res.status(409).json({ message: "Target list contains sublists. Cannot add tasks." });
 
       if (move) {
-          // Move: Update list_id
           await db('tasks').where('id', taskId).update({ list_id: targetListId });
       } else {
-          // Copy: Insert new
           await db('tasks').insert({
               description: task.description,
               completed: task.completed,

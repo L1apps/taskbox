@@ -73,6 +73,7 @@ async function initializeDatabase() {
           table.text('description');
           table.integer('owner_id').unsigned().references('id').inTable('users').onDelete('CASCADE');
           table.integer('parent_id').unsigned().nullable().references('id').inTable('lists').onDelete('CASCADE');
+          table.boolean('pinned').defaultTo(false);
         });
     } else {
         const hasOwnerId = await db.schema.hasColumn('lists', 'owner_id');
@@ -86,6 +87,12 @@ async function initializeDatabase() {
             console.log("Migrating 'lists' table to add 'parent_id' for nesting...");
             await db.schema.alterTable('lists', (table) => {
                 table.integer('parent_id').unsigned().nullable().references('id').inTable('lists').onDelete('CASCADE');
+            });
+        }
+        const hasPinned = await db.schema.hasColumn('lists', 'pinned');
+        if (!hasPinned) {
+            await db.schema.alterTable('lists', (table) => {
+                table.boolean('pinned').defaultTo(false);
             });
         }
     }

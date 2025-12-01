@@ -215,6 +215,7 @@ const ActivityLogTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme: T
 const DatabaseMaintenanceTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], theme: Theme, onUpdate: () => void }> = ({ apiFetch, onUpdate }) => {
     const [status, setStatus] = useState('');
     const [loading, setLoading] = useState(false);
+    const [restoreFile, setRestoreFile] = useState<File | null>(null);
 
     const performAction = async (action: 'prune' | 'purge_all' | 'vacuum' | 'reset_defaults') => {
         if (action === 'purge_all') {
@@ -240,22 +241,113 @@ const DatabaseMaintenanceTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], 
             setLoading(false);
         }
     };
+    
+    const handleDownloadBackup = async () => {
+        try {
+            const res = await apiFetch('/api/admin/backup');
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `taskbox-backup-${new Date().toISOString().split('T')[0]}.db`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setStatus("Backup downloaded.");
+            } else {
+                setStatus("Failed to download backup.");
+            }
+        } catch (e) {
+            setStatus("Backup failed.");
+        }
+    };
+
+    const handleRestoreBackup = async () => {
+        if (!restoreFile) return;
+        if (!window.confirm("CRITICAL: This will OVERWRITE the entire database with the uploaded file. The server will RESTART immediately after. Are you sure?")) return;
+
+        setLoading(true);
+        setStatus("Restoring database... Server will restart.");
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const base64String = (e.target?.result as string).split(',')[1]; // Remove "data:*/*;base64," prefix
+                
+                const res = await apiFetch('/api/admin/restore', {
+                    method: 'POST',
+                    body: JSON.stringify({ fileData: base64String })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    setStatus(data.message);
+                    // Reload page after a delay to allow server restart
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    const err = await res.json();
+                    setStatus("Restore failed: " + err.message);
+                    setLoading(false);
+                }
+            } catch (err) {
+                 setStatus("Restore error.");
+                 setLoading(false);
+            }
+        };
+        reader.readAsDataURL(restoreFile);
+    };
 
     const buttonBase = "px-4 py-2 rounded text-sm font-medium text-white shadow-sm disabled:opacity-50";
 
     return (
         <div className="space-y-6">
             <div>
-                <h4 className="font-semibold mb-2">Maintenance Tools</h4>
-                <p className="text-sm text-gray-500 mb-4">Perform database optimization and cleanup tasks.</p>
-                
+                <h4 className="font-semibold mb-2">Database Import / Export</h4>
+                <div className="space-y-4">
+                     <div className="flex items-center justify-between p-3 border rounded dark:border-gray-700">
+                        <div>
+                            <div className="font-medium">Export Database (Backup)</div>
+                            <div className="text-xs text-gray-500">Download the full SQLite database file.</div>
+                        </div>
+                        <button onClick={handleDownloadBackup} disabled={loading} className={`${buttonBase} bg-blue-500 hover:bg-blue-600`}>Download</button>
+                    </div>
+                    
+                    <div className="p-3 border rounded border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-800">
+                        <div className="flex justify-between items-start mb-2">
+                             <div>
+                                <div className="font-medium text-orange-700 dark:text-orange-400">Import Database (Restore)</div>
+                                <div className="text-xs text-orange-600 dark:text-orange-300">Overwrites current DB. Server will restart.</div>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                             <input 
+                                type="file" 
+                                accept=".db, .sqlite, .sqlite3"
+                                onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+                                className="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200"
+                             />
+                             <button 
+                                onClick={handleRestoreBackup} 
+                                disabled={loading || !restoreFile} 
+                                className={`${buttonBase} bg-orange-600 hover:bg-orange-700 whitespace-nowrap`}
+                             >
+                                Restore
+                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 className="font-semibold mb-2 mt-6">Maintenance Tools</h4>
                 <div className="space-y-4">
                     <div className="flex items-center justify-between p-3 border rounded dark:border-gray-700">
                         <div>
                             <div className="font-medium">Vacuum Database</div>
                             <div className="text-xs text-gray-500">Optimizes the SQLite database file to reduce size.</div>
                         </div>
-                        <button onClick={() => performAction('vacuum')} disabled={loading} className={`${buttonBase} bg-blue-500 hover:bg-blue-600`}>Vacuum</button>
+                        <button onClick={() => performAction('vacuum')} disabled={loading} className={`${buttonBase} bg-gray-500 hover:bg-gray-600`}>Vacuum</button>
                     </div>
 
                     <div className="flex items-center justify-between p-3 border rounded dark:border-gray-700">
@@ -282,7 +374,7 @@ const DatabaseMaintenanceTab: React.FC<{ apiFetch: AdminModalProps['apiFetch'], 
                         <button onClick={() => performAction('purge_all')} disabled={loading} className={`${buttonBase} bg-red-600 hover:bg-red-700`}>Purge All</button>
                     </div>
                 </div>
-                {status && <p className="mt-4 text-center font-semibold">{status}</p>}
+                {status && <p className="mt-4 text-center font-semibold text-blue-600 dark:text-blue-400 animate-pulse">{status}</p>}
             </div>
         </div>
     );

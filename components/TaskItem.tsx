@@ -105,7 +105,17 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
 
   const handleToggleComplete = () => {
     if(isDependencyIncomplete) return;
-    onUpdate({ ...task, completed: !task.completed });
+    
+    const newCompleted = !task.completed;
+    const updatedTask = { ...task, completed: newCompleted };
+
+    // If completing the task, remove focus status.
+    // This allows the backend validation to pass (which prevents focusing a completed task).
+    if (newCompleted) {
+        updatedTask.focused = false;
+    }
+
+    onUpdate(updatedTask);
   };
   
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {

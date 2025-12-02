@@ -9,9 +9,10 @@ interface PasteModalProps {
   onImport: (content: string) => void;
   tasks?: Task[]; // Optional tasks from active list
   theme: Theme;
+  isReadOnlyView?: boolean; // New prop to disable paste/import functionality if no specific list is active
 }
 
-const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], theme }) => {
+const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], theme, isReadOnlyView = false }) => {
   const [pastedText, setPastedText] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -31,7 +32,6 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
       }
       
       // Strict Duplicate Checking
-      // We parse the imported text locally first to check against `tasks`.
       try {
           const importedTasks = parseTasksFromFile(pastedText);
           const existingDescriptions = new Set(tasks.map(t => t.description.toLowerCase().trim()));
@@ -53,12 +53,6 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
               }
           }
           
-          // If we passed checks, send the original text (or we could reconstruct, but sending original is standard flow).
-          // However, since we want to *filter* duplicates, we should probably send the filtered list.
-          // `onImport` takes string. We can regenerate CSV for unique tasks?
-          // Or we can rely on `parseTasksFromFile` inside `onImport` (via context) which processes the raw string.
-          
-          // Better approach: If duplicates found, we regenerate the CSV string for ONLY unique tasks to pass to onImport.
           if (duplicatesCount > 0) {
                const header = "Description,Completed,Due Date,Importance";
                const rows = uniqueTasks.map(t => {
@@ -131,7 +125,7 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
                     value={pastedText}
                     onChange={(e) => { setPastedText(e.target.value); setError(''); }}
                     rows={10}
-                    placeholder={`Examples:\nBuy Milk\nCall John\n\nOR CSV Data:\nDescription,Due Date\nPay Rent,2025-05-01`}
+                    placeholder={isReadOnlyView ? "Use 'Load Active List' above to copy tasks from this view." : `Examples:\nBuy Milk\nCall John\n\nOR CSV Data:\nDescription,Due Date\nPay Rent,2025-05-01`}
                     className={`w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-1 ${focusRingColor} ${inputTextColor}`}
                     autoFocus
                 />
@@ -146,11 +140,16 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
                     </span>
                 </div>
                 {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+                {isReadOnlyView && !error && (
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                        Note: Import is disabled in Global Views. Please select a specific list to paste tasks.
+                    </p>
+                )}
             </div>
             
             <div className="flex justify-end pt-2 space-x-2">
                 <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500">Cancel</button>
-                <button onClick={handleImport} disabled={!pastedText.trim() || !!error} className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm ${buttonColor} disabled:opacity-50`}>
+                <button onClick={handleImport} disabled={!pastedText.trim() || !!error || isReadOnlyView} className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm ${buttonColor} disabled:opacity-50`}>
                     Import Text
                 </button>
             </div>

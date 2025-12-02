@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useTaskBox } from '../contexts/TaskBoxContext';
+import { useTaskBox, SpecialViewType } from '../contexts/TaskBoxContext';
 import { useModal } from '../contexts/ModalContext';
 import type { TaskListWithUsers, Theme } from '../types';
 import Tooltip from './Tooltip';
@@ -15,20 +15,29 @@ interface ListTreeItemProps {
     expandedIds: Set<number>;
     toggleExpand: (id: number) => void;
     onPin: (listId: number, pinned: boolean) => void;
+    sortDesc: boolean;
 }
 
-// Optimization: Memoize the tree item to avoid re-rendering entire tree when one item updates or parent state changes irrelevant to the tree
+// Optimization: Memoize the tree item
 const ListTreeItem: React.FC<ListTreeItemProps> = React.memo(({ 
-    list, allLists, activeListId, depth, onSelect, theme, expandedIds, toggleExpand, onPin
+    list, allLists, activeListId, depth, onSelect, theme, expandedIds, toggleExpand, onPin, sortDesc
 }) => {
     const isOrange = theme === 'orange';
-    const children = allLists.filter(l => l.parentId === list.id);
+    
+    // Sort children based on preference
+    const children = useMemo(() => {
+        return allLists.filter(l => l.parentId === list.id).sort((a, b) => {
+             // Always prioritize pinned items
+             if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+             // Sort Alpha Asc/Desc
+             return sortDesc ? b.title.localeCompare(a.title) : a.title.localeCompare(b.title);
+        });
+    }, [allLists, list.id, sortDesc]);
+
     const isExpanded = expandedIds.has(list.id);
     
-    // Determine Icon based on List Type (Master/Container vs Sublist)
     const isMaster = list.parentId === null;
     
-    // Style logic
     const isActive = activeListId === list.id;
     const baseClass = `flex items-center px-2 py-2 rounded-md cursor-pointer transition-colors duration-200 select-none mb-1 group relative`;
     const activeClass = isOrange 
@@ -45,7 +54,6 @@ const ListTreeItem: React.FC<ListTreeItemProps> = React.memo(({
                 onClick={() => onSelect(list.id)}
             >
                 <div className="flex items-center min-w-0 overflow-hidden w-full">
-                    {/* Expand/Collapse for parents */}
                     {children.length > 0 ? (
                         <button onClick={(e) => { e.stopPropagation(); toggleExpand(list.id); }} className="mr-1 p-0.5 rounded hover:bg-gray-300 dark:hover:bg-gray-600 shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} viewBox="0 0 20 20" fill="currentColor">
@@ -54,7 +62,6 @@ const ListTreeItem: React.FC<ListTreeItemProps> = React.memo(({
                         </button>
                     ) : <span className="w-4 mr-1 shrink-0"></span>}
                     
-                    {/* Distinct Icons */}
                     {isMaster ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 shrink-0 ${isOrange ? 'text-orange-400' : 'text-blue-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -68,7 +75,6 @@ const ListTreeItem: React.FC<ListTreeItemProps> = React.memo(({
                     <span className="truncate text-sm font-medium" title={list.title}>{list.title}</span>
                 </div>
                 
-                {/* Pin Button - Show if pinned or on hover (only for Master Lists usually, but logic allows all) */}
                 {(list.pinned || isActive) && (
                      <button 
                         onClick={(e) => { e.stopPropagation(); onPin(list.id, !list.pinned); }}
@@ -86,14 +92,15 @@ const ListTreeItem: React.FC<ListTreeItemProps> = React.memo(({
                 <ListTreeItem 
                     key={child.id} 
                     list={child} 
-                    allLists={allLists} 
-                    activeListId={activeListId} 
-                    depth={depth + 1} 
+                    allLists={allLists}
+                    activeListId={activeListId}
+                    depth={depth + 1}
                     onSelect={onSelect}
                     theme={theme}
                     expandedIds={expandedIds}
                     toggleExpand={toggleExpand}
                     onPin={onPin}
+                    sortDesc={sortDesc}
                 />
             ))}
         </div>
@@ -101,192 +108,234 @@ const ListTreeItem: React.FC<ListTreeItemProps> = React.memo(({
 });
 
 const TaskListTabs: React.FC = () => {
-  const { lists, activeListId, activeList, setActiveListId, theme, user, removeList, apiFetch, fetchData } = useTaskBox();
-  const { openModal } = useModal();
-  
-  // State for List UI
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [initialized, setInitialized] = useState(false);
+    const { 
+        lists, 
+        activeListId, 
+        setActiveListId, 
+        removeList, 
+        theme, 
+        setSpecialView,
+        specialView,
+        apiFetch, 
+        fetchData
+    } = useTaskBox();
+    
+    const { openModal } = useModal();
+    const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+    const [sortDesc, setSortDesc] = useState(false);
 
-  // Initialize expanded state once when lists load
-  useEffect(() => {
-      if (!initialized && lists.length > 0) {
-          setExpandedIds(new Set());
-          setInitialized(true);
-      }
-  }, [lists, initialized]);
+    const toggleExpand = useCallback((id: number) => {
+        setExpandedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+    
+    const handleToggleExpandAll = () => {
+        if (expandedIds.size > 0) {
+            setExpandedIds(new Set());
+        } else {
+            const parents = new Set<number>();
+            lists.forEach(l => {
+                if (lists.some(c => c.parentId === l.id)) {
+                    parents.add(l.id);
+                }
+            });
+            setExpandedIds(parents);
+        }
+    };
 
-  // AUTO-EXPAND LOGIC: Ensure parent of active list is always open
-  useEffect(() => {
-      if (activeListId && lists.length > 0) {
-          const active = lists.find(l => l.id === activeListId);
-          if (active && active.parentId) {
-              setExpandedIds(prev => {
-                  if (prev.has(active.parentId!)) return prev;
-                  const newSet = new Set(prev);
-                  newSet.add(active.parentId!);
-                  return newSet;
-              });
-          }
-      }
-  }, [activeListId, lists]);
+    // Auto-expand parents of active list
+    useEffect(() => {
+        if (activeListId) {
+            const active = lists.find(l => l.id === activeListId);
+            if (active && active.parentId) {
+                setExpandedIds(prev => {
+                    const next = new Set(prev);
+                    let curr = active;
+                    while (curr.parentId) {
+                        next.add(curr.parentId);
+                        const parent = lists.find(l => l.id === curr.parentId);
+                        if (!parent) break;
+                        curr = parent;
+                    }
+                    return next;
+                });
+            }
+        }
+    }, [activeListId, lists]);
 
-  const toggleExpand = useCallback((id: number) => {
-      setExpandedIds(prev => {
-          const newSet = new Set(prev);
-          if (newSet.has(id)) newSet.delete(id);
-          else newSet.add(id);
-          return newSet;
-      });
-  }, []);
+    const handlePin = useCallback(async (listId: number, pinned: boolean) => {
+        try {
+            await apiFetch(`/api/lists/${listId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ pinned })
+            });
+            fetchData();
+        } catch (e) {
+            console.error("Failed to pin list", e);
+        }
+    }, [apiFetch, fetchData]);
 
-  const toggleAllFolders = () => {
-      const parentLists = lists.filter(l => lists.some(child => child.parentId === l.id));
-      const allExpanded = parentLists.every(l => expandedIds.has(l.id));
-      
-      if (allExpanded) {
-          // Collapse All
-          setExpandedIds(new Set());
-      } else {
-          // Expand All
-          const newSet = new Set(expandedIds);
-          parentLists.forEach(l => newSet.add(l.id));
-          setExpandedIds(newSet);
-      }
-  };
-  
-  const handlePinList = useCallback(async (listId: number, pinned: boolean) => {
-      try {
-          await apiFetch(`/api/lists/${listId}`, {
-              method: 'PUT',
-              body: JSON.stringify({ pinned })
-          });
-          fetchData();
-      } catch (e) {
-          console.error("Failed to toggle pin");
-      }
-  }, [apiFetch, fetchData]);
+    const isOrange = theme === 'orange';
+    const specialViewBaseClass = `flex items-center px-2 py-2 rounded-md cursor-pointer transition-colors duration-200 select-none mb-1 text-sm font-medium`;
+    const getSpecialViewClass = (view: SpecialViewType) => {
+        if (specialView === view) {
+             return isOrange ? 'bg-orange-900/40 text-orange-500' : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400';
+        }
+        return isOrange ? 'text-gray-400 hover:bg-white/10' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700';
+    };
 
-  if (!user) return null;
-
-  const isOrange = theme === 'orange';
-  const toolbarBtnClass = `p-1.5 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${isOrange ? 'text-gray-400 hover:text-orange-500 hover:bg-gray-800' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`;
-
-  // --- SORTING LOGIC ---
-  
-  const rootLists = lists.filter(l => !l.parentId);
-
-  const sortedRootLists = useMemo(() => {
-      const sorted = [...rootLists].sort((a, b) => {
-          // Priority 1: Pinned
-          if (a.pinned && !b.pinned) return -1;
-          if (!a.pinned && b.pinned) return 1;
-
-          // Priority 2: Alphabetical (Toggle)
-          const compareTitle = sortOrder === 'asc' 
-              ? a.title.localeCompare(b.title) 
-              : b.title.localeCompare(a.title);
-          return compareTitle;
-      });
-      return sorted;
-  }, [rootLists, sortOrder]);
-
-  const isOwner = activeList?.ownerId === user.id;
-  const canAddSublist = !!activeList && isOwner && activeList.tasks.length === 0 && !activeList.parentId;
-
-  return (
-    <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700 relative z-50">
-            <div className="flex items-center space-x-2">
-                <span className={`text-xs font-semibold uppercase ${isOrange ? 'text-gray-500' : 'text-gray-400'}`}>Lists</span>
-                
-                {/* Sort Toggle */}
-                <Tooltip text={`Sort: ${sortOrder === 'asc' ? 'A-Z' : 'Z-A'}`}>
-                    <button onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${isOrange ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {sortOrder === 'asc' ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
-                        ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h5m0 0v8m0-8h4m-4 8l-4-4m4 4l4-4" /></svg>
-                        )}
-                    </button>
-                </Tooltip>
-
-                {/* Expand/Collapse All */}
-                <Tooltip text="Toggle Folders">
-                    <button onClick={toggleAllFolders} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${isOrange ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                        </svg>
-                    </button>
-                </Tooltip>
+    const rootLists = useMemo(() => {
+        const roots = lists.filter(l => l.parentId === null);
+        return roots.sort((a, b) => {
+             // Priority: Pinned > Alpha
+             if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+             return sortDesc ? b.title.localeCompare(a.title) : a.title.localeCompare(b.title);
+        });
+    }, [lists, sortDesc]);
+    
+    return (
+        <div className="flex flex-col h-full overflow-hidden">
+             <div className="p-4 shrink-0 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                <h2 className={`font-semibold tracking-wider ${isOrange ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>LISTS</h2>
+                <div className="flex items-center space-x-1">
+                    <Tooltip text={expandedIds.size > 0 ? "Collapse All" : "Expand All"} debugLabel="Sidebar Expand/Collapse All">
+                        <button onClick={handleToggleExpandAll} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${isOrange ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {expandedIds.size > 0 ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                                </svg>
+                            )}
+                        </button>
+                    </Tooltip>
+                    <Tooltip text={sortDesc ? "Sort Z-A" : "Sort A-Z"} debugLabel="Sidebar Sort Toggle">
+                        <button onClick={() => setSortDesc(!sortDesc)} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${isOrange ? 'text-gray-400 hover:text-orange-500' : 'text-gray-500 hover:text-blue-500'}`}>
+                            {sortDesc ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transform rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                </svg>
+                            )}
+                        </button>
+                    </Tooltip>
+                    <Tooltip text="Create New List" align="right" debugLabel="Sidebar Add List Button">
+                        <button onClick={() => openModal('ADD_LIST')} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${isOrange ? 'text-orange-500' : 'text-blue-500'}`}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                            </svg>
+                        </button>
+                    </Tooltip>
+                </div>
             </div>
-
-            <Tooltip text="Add Top Level List" align="right">
-                <button onClick={() => openModal('ADD_LIST', { parentId: null })} className={toolbarBtnClass}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                </button>
-            </Tooltip>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center justify-start gap-1 p-2 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 overflow-visible">
-             <Tooltip text="Add Sublist" align="left" position="top">
-                <button onClick={() => activeList && openModal('ADD_LIST', { parentId: activeList.id })} disabled={!canAddSublist} className={toolbarBtnClass}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                </button>
-            </Tooltip>
-            <Tooltip text="Rename" align="center" position="top">
-                <button onClick={() => activeList && openModal('RENAME_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </button>
-            </Tooltip>
-            <Tooltip text="Share" align="center" position="top">
-                <button onClick={() => activeList && openModal('SHARE_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-                </button>
-            </Tooltip>
-            <Tooltip text="Move" align="center" position="top">
-                <button onClick={() => activeList && openModal('MOVE_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                </button>
-            </Tooltip>
-            <Tooltip text="Merge" align="center" position="top">
-                <button onClick={() => activeList && openModal('MERGE_LIST', { list: activeList })} disabled={!activeList || !isOwner} className={toolbarBtnClass}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                </button>
-            </Tooltip>
-            <div className="flex-grow"></div>
-            <Tooltip text="Delete" align="right" position="top">
-                <button onClick={() => activeList && removeList(activeList.id)} disabled={!activeList || !isOwner} className={`${toolbarBtnClass} hover:text-red-500`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-            </Tooltip>
-        </div>
-
-        {/* List Tree */}
-        <div className="flex-grow overflow-y-auto no-scrollbar px-2 pb-4 pt-2 relative z-0">
-            {sortedRootLists.map(list => (
-                <ListTreeItem 
-                    key={list.id} 
-                    list={list} 
-                    allLists={lists} 
-                    activeListId={activeListId} 
-                    depth={0} 
-                    onSelect={setActiveListId}
-                    theme={theme}
-                    expandedIds={expandedIds}
-                    toggleExpand={toggleExpand}
-                    onPin={handlePinList}
-                />
-            ))}
-            {sortedRootLists.length === 0 && (
-                <div className="text-center text-xs text-gray-400 mt-4 italic">No lists yet.</div>
+            
+            {/* List Actions (Moved to Top) */}
+            {activeListId && (
+                <div className={`p-2 border-b border-gray-200 dark:border-gray-700 ${isOrange ? 'bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                    <div className="flex justify-around">
+                        <Tooltip text="List Settings / Share" align="left" debugLabel="Active List Settings">
+                            <button onClick={() => { 
+                                const l = lists.find(x => x.id === activeListId); 
+                                if (l) openModal('SHARE_LIST', { list: l });
+                            }} className="p-2 text-gray-500 hover:text-blue-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            </button>
+                        </Tooltip>
+                        <Tooltip text="Rename List" debugLabel="Active List Rename">
+                             <button onClick={() => {
+                                 const l = lists.find(x => x.id === activeListId); 
+                                 if (l) openModal('RENAME_LIST', { list: l });
+                             }} className="p-2 text-gray-500 hover:text-blue-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                        </Tooltip>
+                        <Tooltip text="Move List" debugLabel="Active List Move">
+                             <button onClick={() => {
+                                 const l = lists.find(x => x.id === activeListId); 
+                                 if (l) openModal('MOVE_LIST', { list: l });
+                             }} className="p-2 text-gray-500 hover:text-blue-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                            </button>
+                        </Tooltip>
+                        <Tooltip text="Merge List" debugLabel="Active List Merge">
+                             <button onClick={() => {
+                                 const l = lists.find(x => x.id === activeListId); 
+                                 if (l) openModal('MERGE_LIST', { list: l });
+                             }} className="p-2 text-gray-500 hover:text-yellow-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                            </button>
+                        </Tooltip>
+                         <Tooltip text="Delete List" align="right" debugLabel="Active List Delete">
+                             <button onClick={() => removeList(activeListId)} className="p-2 text-gray-500 hover:text-red-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        </Tooltip>
+                    </div>
+                </div>
             )}
+
+            <div className="flex-grow overflow-y-auto p-2 no-scrollbar">
+                {/* Global Views Section */}
+                <div className="mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">
+                     <div className={specialViewBaseClass + ' ' + getSpecialViewClass('all')} onClick={() => setSpecialView('all')}>
+                        {/* Globe Icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                        All Tasks
+                     </div>
+                     <div className={specialViewBaseClass + ' ' + getSpecialViewClass('focused')} onClick={() => setSpecialView('focused')}>
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Focused
+                     </div>
+                     <div className={specialViewBaseClass + ' ' + getSpecialViewClass('importance')} onClick={() => setSpecialView('importance')}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        High Priority
+                     </div>
+                     <div className={specialViewBaseClass + ' ' + getSpecialViewClass('pinned')} onClick={() => setSpecialView('pinned')}>
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                           <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                         </svg>
+                         Pinned Tasks
+                     </div>
+                </div>
+
+                {/* Lists Tree */}
+                {rootLists.length === 0 ? (
+                    <div className="text-sm text-gray-500 text-center py-4">No lists created.</div>
+                ) : (
+                    rootLists.map(list => (
+                        <ListTreeItem 
+                            key={list.id} 
+                            list={list} 
+                            allLists={lists} 
+                            activeListId={activeListId} 
+                            depth={0} 
+                            onSelect={setActiveListId} 
+                            theme={theme}
+                            expandedIds={expandedIds}
+                            toggleExpand={toggleExpand}
+                            onPin={handlePin}
+                            sortDesc={sortDesc}
+                        />
+                    ))
+                )}
+            </div>
         </div>
-    </div>
-  );
+    );
 };
 
 export default TaskListTabs;

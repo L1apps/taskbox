@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useModal } from '../contexts/ModalContext';
 import { useTaskBox } from '../contexts/TaskBoxContext';
 import AddListModal from './AddListModal';
@@ -15,6 +15,7 @@ import MoveListModal from './MoveListModal';
 import MergeListModal from './MergeListModal';
 import RenameListModal from './RenameListModal';
 import CopyTaskModal from './CopyTaskModal';
+import { Task } from '../types';
 
 const ModalManager: React.FC = () => {
     const { activeModal, closeModal } = useModal();
@@ -30,9 +31,45 @@ const ModalManager: React.FC = () => {
         renameList, 
         processImport, 
         activeList,
+        specialView,
         copyTaskToList,
         setUser
     } = useTaskBox();
+
+    // Helper to calculate tasks for the current view (Active List OR Global View)
+    const currentViewTasks: Task[] = useMemo(() => {
+        if (activeList) return activeList.tasks;
+        
+        if (specialView) {
+            const allTasks: Task[] = [];
+            lists.forEach(list => {
+                if (list.tasks) {
+                    list.tasks.forEach(task => {
+                        let match = false;
+                        if (specialView === 'all') match = true;
+                        if (specialView === 'importance' && task.importance === 2) match = true;
+                        if (specialView === 'pinned' && task.pinned) match = true;
+                        if (specialView === 'dependencies' && task.dependsOn) match = true;
+                        if (specialView === 'focused' && task.focused) match = true;
+                        
+                        if (match) allTasks.push(task);
+                    });
+                }
+            });
+            return allTasks;
+        }
+        return [];
+    }, [activeList, specialView, lists]);
+
+    const currentViewTitle = useMemo(() => {
+        if (activeList) return activeList.title;
+        if (specialView === 'all') return 'All Tasks';
+        if (specialView === 'importance') return 'High Importance';
+        if (specialView === 'pinned') return 'Pinned Tasks';
+        if (specialView === 'dependencies') return 'Dependent Tasks';
+        if (specialView === 'focused') return 'Focused Tasks';
+        return 'Tasks';
+    }, [activeList, specialView]);
 
     if (!activeModal) return null;
 
@@ -60,9 +97,11 @@ const ModalManager: React.FC = () => {
         case 'IMPORT':
             return <ImportModal onClose={closeModal} onImport={async (content) => { await processImport(content); closeModal(); }} theme={theme} />;
         case 'PASTE':
-            return <PasteModal onClose={closeModal} onImport={async (content) => { await processImport(content); closeModal(); }} tasks={activeList?.tasks} theme={theme} />;
+            // Pass currentViewTasks to PasteModal so "Load Active List" works even for Global Views
+            return <PasteModal onClose={closeModal} onImport={async (content) => { await processImport(content); closeModal(); }} tasks={currentViewTasks} theme={theme} isReadOnlyView={!!specialView} />;
         case 'EXPORT':
-            return <ExportModal onClose={closeModal} tasks={activeList?.tasks || []} listName={activeList?.title || 'Export'} theme={theme} />;
+            // Pass currentViewTasks to ExportModal
+            return <ExportModal onClose={closeModal} tasks={currentViewTasks} listName={currentViewTitle} theme={theme} />;
         case 'COPY_TASK':
             return <CopyTaskModal onClose={closeModal} task={props.task} lists={lists} onCopyToList={(targetId, move) => copyTaskToList(props.task.id, targetId, move)} theme={theme} />;
         default:

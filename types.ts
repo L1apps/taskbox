@@ -15,6 +15,7 @@ export interface Task {
   importance: number; // 0: Low, 1: Medium, 2: High
   dependsOn?: number | null;
   pinned: boolean;
+  focused: boolean; // Added for Focused list
   list_id?: number; // Added for search results context
 }
 

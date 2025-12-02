@@ -1,0 +1,434 @@
+
+<h1>TaskBox</h1>
+<strong>Your Personal Task Manager</strong>
+
+TaskBox is a standalone, feature-rich task management app designed for individuals and teams. It supports nested lists, multi-user collaboration, list sharing, admin controls, task dependencies, importance levels, pinning, statistics, printing, and full database backup/restore — all in a secure, self-hosted Docker container.
+
+<hr />
+
+<h2>Overview</h2>
+TaskBox provides a clean interface for organizing tasks, lists, and workflows locally. Use it on your own server or network with full privacy. No cloud required.
+
+<hr />
+
+<h2>Key Features</h2>
+<ul>
+ 	<li><strong>Focused List:</strong> A dedicated, always-accessible list for your immediate priorities.</li>
+ 	<li><strong>Global Views:</strong> View tasks from all lists in one place (File Cabinet) with list filtering.</li>
+ 	<li><strong>Sidebar Toolbar:</strong> Centralized control for list actions (Rename, Share, Move, Merge, Delete).</li>
+ 	<li><strong>Nested Lists:</strong> 3-Tier hierarchical structure (Top Level → Master List → Sublist → Nested Sublist).</li>
+ 	<li><strong>Merge Lists:</strong> Combine lists into one.</li>
+ 	<li><strong>List Sorting &amp; Pinning:</strong> Sort alphabetically and pin important lists.</li>
+ 	<li><strong>Copy/Move Tasks:</strong> Move or copy tasks between lists.</li>
+ 	<li><strong>Duplicate Prevention:</strong> Paste/import automatically filters duplicates.</li>
+ 	<li><strong>Multi-User Support:</strong> Secure registration and login system.</li>
+ 	<li><strong>Admin Panel:</strong> User management, logs, maintenance tools.</li>
+ 	<li><strong>Database Backup &amp; Restore:</strong> Download or upload full SQLite database.</li>
+ 	<li><strong>Task Management:</strong> Pin tasks, set dependencies, mark importance levels.</li>
+ 	<li><strong>Import/Export:</strong> CSV/text import &amp; export.</li>
+ 	<li><strong>Themes:</strong> Light, Dark, High-Contrast Orange.</li>
+</ul>
+
+<hr />
+
+<h2>How to Use TaskBox</h2>
+[expand title="<strong><em>Click to view full usage guide</em></strong>"]
+<h3>1. List Hierarchy</h3>
+TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization clean:
+<ol>
+ 	<li><strong>Top Level:</strong> The root view where your Master Lists live.</li>
+ 	<li><strong>Master List (Level 1):</strong> Can behave in one of two ways:
+<ul>
+ 	<li><strong>Task List:</strong> Contains tasks directly.</li>
+ 	<li><strong>Container List:</strong> Contains <strong>Sublists</strong> only.</li>
+ 	<li><em>Rule:</em> A list cannot contain both tasks and sublists.</li>
+</ul>
+</li>
+ 	<li><strong>Sublist (Level 2):</strong> A list nested inside a Master List. It can contain tasks OR Nested Sublists.</li>
+ 	<li><strong>Nested Sublist (Level 3):</strong> The deepest level. It can only contain tasks.</li>
+</ol>
+<h3>2. Permissions</h3>
+<ul>
+ 	<li><strong>Owner:</strong> Can move, merge, delete, rename, or share the list.</li>
+ 	<li><strong>Shared User:</strong> Can add/edit/complete tasks but cannot change list structure.</li>
+ 	<li><strong>Upward Sharing:</strong> Sharing a sublist automatically shares the parent container.</li>
+ 	<li><strong>Recursive Sharing:</strong> Sharing a Master List shares all sublists.</li>
+</ul>
+<h3>Getting Started</h3>
+<ul>
+ 	<li>The first user to register becomes <strong>Admin</strong>.</li>
+ 	<li>Admin creates additional users via the Admin Panel.</li>
+ 	<li>Public registration is disabled.</li>
+</ul>
+<h3>Focused List &amp; Global Views</h3>
+<ul>
+ 	<li><strong>Focused List (Target Icon):</strong> A permanent list at the top of the sidebar. Toggle the target icon on any task to add it here. Supports Sorting, Printing, and Exporting.</li>
+ 	<li><strong>Global Views (File Cabinet):</strong> View tasks across ALL lists. Filter by All Active, High Importance, Pinned, or Dependencies. Use "Filter Lists" to narrow down the view.</li>
+ 	<li><strong>Global Search:</strong> Persistent search bar in the header searches all lists.</li>
+</ul>
+<h3>Task Management</h3>
+<ul>
+ 	<li><strong>Add Task:</strong> Type at bottom of list.</li>
+ 	<li><strong>Edit:</strong> Click task text.</li>
+ 	<li><strong>Complete:</strong> Tasks move down or hide via “eye” toggle.</li>
+ 	<li><strong>Importance:</strong> Low → Medium → High.</li>
+ 	<li><strong>Pin:</strong> Keeps tasks at top.</li>
+ 	<li><strong>Dependencies:</strong> Tasks cannot complete until prerequisite is finished.</li>
+ 	<li><strong>Copy/Move:</strong> Hover → Copy icon.</li>
+ 	<li><strong>Print:</strong> Generates a clean, checklist-style print view. Works for long lists across multiple pages.</li>
+</ul>
+<h3>List Actions</h3>
+<ul>
+ 	<li><strong>Rename</strong></li>
+ 	<li><strong>Move:</strong> Valid options only; containers cannot be moved inside lists.</li>
+ 	<li><strong>Merge:</strong> Combines lists and deletes the source.</li>
+ 	<li><strong>Share</strong></li>
+</ul>
+<h3>Copy / Paste &amp; Import</h3>
+<ul>
+ 	<li><strong>Clipboard Modal:</strong>
+<ul>
+ 	<li>Paste text to create tasks.</li>
+ 	<li>Copy active list (with metadata or descriptions only).</li>
+ 	<li>Load Active List for copying.</li>
+</ul>
+</li>
+ 	<li><strong>Import:</strong> CSV/TXT with supported headers. (Disabled in Global Views).</li>
+ 	<li><strong>Export:</strong> CSV/TXT (disabled for empty lists).</li>
+</ul>
+<h3>Admin Panel</h3>
+<ul>
+ 	<li><strong>User Management:</strong> Add/delete/reset users.</li>
+ 	<li><strong>Activity Log:</strong> Security log.</li>
+ 	<li><strong>Database Management:</strong>
+<ul>
+ 	<li>Export full database</li>
+ 	<li>Restore database (server restarts)</li>
+</ul>
+</li>
+ 	<li><strong>Maintenance:</strong>
+<ul>
+ 	<li>Vacuum database</li>
+ 	<li>Prune orphans</li>
+ 	<li>Purge All Data</li>
+ 	<li>Reset Defaults</li>
+</ul>
+</li>
+</ul>
+<h3>Themes</h3>
+<ul>
+ 	<li>Light</li>
+ 	<li>Dark</li>
+ 	<li>Orange</li>
+</ul>
+<h3>Technical Limitations</h3>
+<ul>
+ 	<li><strong>Max Depth:</strong> 3 Levels (Master → Sublist → Nested Sublist).</li>
+ 	<li><strong>Container Rule:</strong> Lists with sublists cannot hold tasks.</li>
+ 	<li><strong>Single Session:</strong> SQLite may lock under heavy parallel writes.</li>
+ 	<li><strong>No Offline Mode:</strong> Requires network to container.</li>
+</ul>
+[/expand]
+
+<hr />
+
+<h2>TaskBox Snapshot</h2>
+<img src="https://l1apps.com/taskbox/taskbox-screenshot/" alt="TaskBox Screenshot" />
+
+<hr />
+
+<h2>Quick Start with Docker</h2>
+<h3>Option 1: Using Docker Compose (Recommended)</h3>
+
+[code language="yaml"]
+version: '3.8'
+
+services:
+  taskbox:
+    image: l1apps/taskbox:latest
+    container_name: taskbox
+    ports:
+      - "6500:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=your-super-secret-key
+      - SESSION_TIMEOUT=7d
+[/code]
+
+Start:
+
+[code language="bash"]
+docker-compose up -d
+[/code]
+
+Open in browser:
+<pre><code>http://localhost:6500</code></pre>
+<h3>Option 2: Docker CLI</h3>
+
+[code language="bash"]
+docker run -d \
+  --name taskbox \
+  -p 6500:3000 \
+  -v ./data:/app/data \
+  -e JWT_SECRET=mysecurekey \
+  --restart unless-stopped \
+  l1apps/taskbox:latest
+[/code]
+
+<h3>Option 3: Portainer (Stacks)</h3>
+<ol>
+ 	<li>Open Portainer.</li>
+ 	<li>Stacks → Add Stack</li>
+ 	<li>Paste your docker-compose.yml</li>
+ 	<li>Deploy</li>
+ 	<li>Open <code>http://your-server-ip:6500</code></li>
+</ol>
+
+<hr />
+
+<h2>Recover Lost Admin Password</h2>
+
+[code language="bash"]
+docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
+[/code]
+
+
+<hr />
+
+<h2>Version History</h2>
+[expand title="<strong><em>Click to view full TaskBox changelog</em></strong>"]
+<ul>
+    <li><strong>3.9.12 – 2025-10-10</strong>
+<ul>
+ 	<li>Fixed CSV export quoting issues.</li>
+ 	<li>Restricted Share permissions (Owner-only add).</li>
+    <li>Added Debug Mode (use <code>?tooltips=on</code>) to identify UI elements.</li>
+</ul>
+</li>
+    <li><strong>3.9.11 – 2025-10-08</strong>
+<ul>
+ 	<li>Added "Filter Lists" dropdown to Global Views.</li>
+ 	<li>Improved Dependency visualization in Global Views.</li>
+ 	<li>Updated Focused List icons (Blue List/Folder) and Focused task toggle (Blue Circle/Check).</li>
+ 	<li>Fixed multi-page printing overflow.</li>
+</ul>
+</li>
+    <li><strong>3.9.10 – 2025-10-06</strong>
+<ul>
+ 	<li>Fixed multi-page printing overflow issues.</li>
+ 	<li>Import functions are now explicitly disabled when using Global Views to prevent errors.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.9 – 2025-10-04</strong>
+<ul>
+ 	<li>Global Views (Focused, All Tasks) upgraded with Sorting, Search, and Printing.</li>
+ 	<li>Added Export capability for Focused and Global lists.</li>
+ 	<li>Added Clipboard Copy for Global views.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.8 – 2025-10-02</strong>
+<ul>
+ 	<li>Added permanent "Focused" list.</li>
+ 	<li>Added Focus Toggle (Target Icon) to tasks.</li>
+ 	<li>Global Views now exclude completed tasks by default.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.7 – 2025-09-30</strong>
+<ul>
+ 	<li>Added Global Views ("File Cabinet") for All Tasks, Pinned, etc.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.6 – 2025-09-28</strong>
+<ul>
+ 	<li>Increased nesting depth to 3 levels.</li>
+ 	<li>Added persistent view settings.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.5 – 2025-09-26</strong>
+<ul>
+ 	<li>Added Database Backup &amp; Restore.</li>
+ 	<li>Print font standardized (Arial 11pt).</li>
+ 	<li>Print checkbox size fixed.</li>
+ 	<li>Upload limit increased to 100MB.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.4 – 2025-09-24</strong>
+<ul>
+ 	<li>Redesigned print layout.</li>
+ 	<li>Added sortable columns to Statistics.</li>
+ 	<li>Removed “Float Active List” behavior.</li>
+ 	<li>Print button hidden for container lists.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.3 – 2025-09-22</strong>
+<ul>
+ 	<li>Optimized Check/Uncheck All (batch API).</li>
+ 	<li>Improved print CSS.</li>
+ 	<li>Improved React list rendering performance.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.2 – 2025-09-20</strong>
+<ul>
+ 	<li>Added list sorting.</li>
+ 	<li>Added list pinning.</li>
+ 	<li>Added Expand/Collapse All.</li>
+ 	<li>Improved Statistics sorting.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.1 – 2025-09-17</strong>
+<ul>
+ 	<li>Duplicate prevention added.</li>
+ 	<li>Descriptions Only copy mode added.</li>
+ 	<li>Local search bar improved.</li>
+ 	<li>Export disabled for empty lists.</li>
+ 	<li>Move/Merge logic improved.</li>
+</ul>
+</li>
+ 	<li><strong>3.9.0 – 2025-09-15</strong>
+<ul>
+ 	<li>Major refactor using Context API.</li>
+ 	<li>Global search bar added.</li>
+ 	<li>Copy/Paste modal improved.</li>
+</ul>
+</li>
+ 	<li><strong>3.8.0 – 2025-09-10</strong>
+<ul>
+ 	<li>Added Copy/Move Task modal.</li>
+ 	<li>Permission logic improved.</li>
+ 	<li>Sharing inheritance improved.</li>
+</ul>
+</li>
+ 	<li><strong>3.7.4 – 2025-09-01</strong>
+<ul>
+ 	<li>Sorting logic refactored.</li>
+ 	<li>Error handling improved.</li>
+</ul>
+</li>
+ 	<li><strong>3.7.3 – 2025-08-25</strong>
+<ul>
+ 	<li>Statistics now exclude empty lists.</li>
+</ul>
+</li>
+ 	<li><strong>3.7.2 – 2025-08-20</strong>
+<ul>
+ 	<li>Added Paste modal.</li>
+ 	<li>Added custom warning modals.</li>
+</ul>
+</li>
+ 	<li><strong>3.7.1 – 2025-08-15</strong>
+<ul>
+ 	<li>Fixed Add Task behavior for container lists.</li>
+</ul>
+</li>
+ 	<li><strong>3.7.0 – 2025-08-10</strong>
+<ul>
+ 	<li>Priority sorting improved.</li>
+ 	<li>Tooltip layout improvements.</li>
+</ul>
+</li>
+ 	<li><strong>3.6.0 – 2025-08-05</strong>
+<ul>
+ 	<li>SQLite foreign key enforcement enabled.</li>
+ 	<li>Tooltip z-index fixes.</li>
+</ul>
+</li>
+ 	<li><strong>3.5.0 – 2025-08-01</strong>
+<ul>
+ 	<li>Sidebar Toolbar added.</li>
+ 	<li>Admin refresh after maintenance actions.</li>
+</ul>
+</li>
+ 	<li><strong>3.4.0 – 2025-07-28</strong>
+<ul>
+ 	<li>Demo “Groceries” list added.</li>
+ 	<li>Reset to Defaults added.</li>
+</ul>
+</li>
+ 	<li><strong>3.3.0 – 2025-07-20</strong>
+<ul>
+ 	<li>Rename lists added.</li>
+ 	<li>Admin maintenance tools expanded.</li>
+ 	<li>Simplified sidebar UI.</li>
+</ul>
+</li>
+ 	<li><strong>3.2.0 – 2025-07-10</strong>
+<ul>
+ 	<li>Merge Lists introduced.</li>
+ 	<li>Strict hierarchy rules enforced.</li>
+</ul>
+</li>
+ 	<li><strong>3.1.1 – 2025-07-06</strong>
+<ul>
+ 	<li>Build errors corrected.</li>
+</ul>
+</li>
+ 	<li><strong>3.1.0 – 2025-07-05</strong>
+<ul>
+ 	<li>Nested lists introduced.</li>
+ 	<li>Recursive sharing implemented.</li>
+</ul>
+</li>
+ 	<li><strong>3.0.0 – 2025-07-01</strong>
+<ul>
+ 	<li>Initial folder hierarchy introduced.</li>
+ 	<li>Tree view sidebar.</li>
+ 	<li>Move List feature added.</li>
+</ul>
+</li>
+ 	<li><strong>2.9.1 – 2025-06-27</strong>
+<ul>
+ 	<li>Sorting fixes.</li>
+</ul>
+</li>
+ 	<li><strong>2.9.0 – 2025-06-25</strong>
+<ul>
+ 	<li>Version displayed in header.</li>
+</ul>
+</li>
+ 	<li><strong>2.8.0 – 2025-06-20</strong>
+<ul>
+ 	<li>Sort indicators added.</li>
+</ul>
+</li>
+ 	<li><strong>2.7.0 – 2025-06-15</strong>
+<ul>
+ 	<li>Admin log clearing added.</li>
+</ul>
+</li>
+ 	<li><strong>2.6.0 – 2025-06-10</strong>
+<ul>
+ 	<li>Resizable sidebar added.</li>
+ 	<li>Advanced import/export modal added.</li>
+</ul>
+</li>
+ 	<li><strong>2.5.0 – 2025-05-28</strong>
+<ul>
+ 	<li>User settings added.</li>
+ 	<li>Date Created added.</li>
+</ul>
+</li>
+ 	<li><strong>2.0.0 – 2025-05-10</strong>
+<ul>
+ 	<li>Multi-user authentication added.</li>
+ 	<li>List sharing added.</li>
+ 	<li>Pinned tasks feature added.</li>
+</ul>
+</li>
+ 	<li><strong>1.0.0 – 2025-04-20</strong>
+<ul>
+ 	<li>Initial release.</li>
+ 	<li>Multiple lists, Task CRUD, SQLite, Docker support.</li>
+</ul>
+</li>
+</ul>
+[/expand]
+
+<hr />
+
+<h2>Support</h2>
+This App is free and self-hosted.
+A support/contact form will be available soon.

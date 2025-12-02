@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import type { Task, TaskListWithUsers, Theme, User } from '../types';
 import { parseTasksFromFile } from '../utils/csvImporter';
 
+export type SpecialViewType = 'all' | 'importance' | 'pinned' | 'dependencies' | 'focused' | null;
+
 interface TaskBoxContextType {
     // State
     theme: Theme;
@@ -10,16 +12,19 @@ interface TaskBoxContextType {
     lists: TaskListWithUsers[];
     activeListId: number | null;
     activeList: TaskListWithUsers | undefined;
+    specialView: SpecialViewType; // New state for Global Views
     searchQuery: string;
     loading: boolean;
     error: string | null;
     needsSetup: boolean;
     authLoaded: boolean;
+    debugMode: boolean;
 
     // Setters
     toggleTheme: () => void;
     setSearchQuery: (query: string) => void;
     setActiveListId: (id: number | null) => void;
+    setSpecialView: (view: SpecialViewType) => void; // New setter
     setUser: (user: User | null) => void;
     setToken: (token: string | null) => void;
     setError: (error: string | null) => void;
@@ -59,6 +64,9 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
         } catch { return 'light'; }
     });
 
+    // Debug Mode
+    const [debugMode, setDebugMode] = useState(false);
+
     useEffect(() => {
         window.localStorage.setItem('taskbox-theme', JSON.stringify(theme));
         document.documentElement.classList.remove('light', 'dark', 'orange');
@@ -70,11 +78,37 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
         else document.body.classList.remove('theme-orange');
     }, [theme]);
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const debugParam = params.get('debug');
+        const tooltipsParam = params.get('tooltips');
+        const path = window.location.pathname;
+
+        // Check for explicit Disable signals first
+        if (debugParam === 'off' || debugParam === 'false' || tooltipsParam === 'off' || tooltipsParam === 'false') {
+            setDebugMode(false);
+            return;
+        }
+
+        // Check for Enable signals
+        const isDebug = 
+            debugParam === 'true' || 
+            debugParam === 'on' || 
+            tooltipsParam === 'on' ||
+            path === '/debug';
+        
+        setDebugMode(isDebug);
+        if (isDebug) {
+            console.log("TaskBox Debug Mode Enabled via URL");
+        }
+    }, []);
+
     const toggleTheme = useCallback(() => setTheme(p => p === 'light' ? 'dark' : p === 'dark' ? 'orange' : 'light'), []);
 
     // App State
     const [lists, setLists] = useState<TaskListWithUsers[]>([]);
-    const [activeListId, setActiveListId] = useState<number | null>(null);
+    const [activeListId, setActiveListIdState] = useState<number | null>(null);
+    const [specialView, setSpecialViewState] = useState<SpecialViewType>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -84,6 +118,17 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
     const [user, setUser] = useState<User | null>(null);
     const [needsSetup, setNeedsSetup] = useState(false);
     const [authLoaded, setAuthLoaded] = useState(false);
+
+    // Custom setters to ensure mutual exclusivity between List View and Special View
+    const setActiveListId = (id: number | null) => {
+        setActiveListIdState(id);
+        if (id !== null) setSpecialViewState(null); // Clear special view if a list is selected
+    };
+
+    const setSpecialView = (view: SpecialViewType) => {
+        setSpecialViewState(view);
+        if (view !== null) setActiveListIdState(null); // Clear active list if special view is selected
+    };
 
     // Refs to break dependency cycles
     const activeListIdRef = useRef(activeListId);
@@ -144,18 +189,23 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
             const data = await res.json();
             setLists(data);
             
-            // Only auto-select if no list is active OR active list was deleted
+            // Only auto-select if no list is active AND no special view is active
             const currentActiveId = activeListIdRef.current;
-            if (data.length > 0) {
-                 if (currentActiveId === null || !data.find((l: any) => l.id === currentActiveId)) {
-                     setActiveListId(data[0].id);
-                 }
-            } else {
-                setActiveListId(null);
+            
+            // Note: We access state directly here via a ref check logic, but we can't easily access specialView state inside useCallback without dependency.
+            // However, standard behavior is: if user was on a list that disappeared, default to first list.
+            if (data.length > 0 && currentActiveId === null) {
+                 // We don't auto-select here to allow for "No selection" state or Special Views persistence
+                 // Logic handled in UI components usually
             }
+            // If active list was deleted, reset
+            if (currentActiveId !== null && !data.find((l: any) => l.id === currentActiveId)) {
+                setActiveListId(data.length > 0 ? data[0].id : null);
+            }
+
         } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
         finally { setLoading(false); }
-    }, [user, apiFetch]); // Removed activeListId from dependency array
+    }, [user, apiFetch]); 
 
     useEffect(() => { fetchData(); }, [user, fetchData]);
 
@@ -249,10 +299,15 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const updateTask = async (task: Task) => {
         try {
-            await apiFetch(`/api/tasks/${task.id}`, {
+            const response = await apiFetch(`/api/tasks/${task.id}`, {
                 method: 'PUT',
                 body: JSON.stringify(task),
             });
+            if (!response.ok) {
+                const data = await response.json();
+                // Alert for focus limit
+                if (data.message) alert(data.message);
+            }
             fetchData();
         } catch (err) { console.error("Failed to update task."); }
     };
@@ -291,8 +346,9 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
             theme, toggleTheme,
             user, setUser, setToken,
             lists, activeListId, activeList, setActiveListId,
+            specialView, setSpecialView,
             searchQuery, setSearchQuery,
-            loading, error, setError, needsSetup, authLoaded,
+            loading, error, setError, needsSetup, authLoaded, debugMode,
             fetchData, apiFetch, handleLogout,
             addList, removeList, moveList, mergeList, renameList,
             addTask, removeTask, updateTask, processImport, copyTaskToList

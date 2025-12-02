@@ -147,6 +147,7 @@ async function initializeDatabase() {
           table.integer('list_id').unsigned().references('id').inTable('lists').onDelete('CASCADE');
           table.integer('dependsOn').unsigned().references('id').inTable('tasks').onDelete('SET NULL');
           table.boolean('pinned').defaultTo(false);
+          table.boolean('focused').defaultTo(false);
         });
     } else {
         const hasDependsOn = await db.schema.hasColumn('tasks', 'dependsOn');
@@ -156,6 +157,10 @@ async function initializeDatabase() {
         const hasPinned = await db.schema.hasColumn('tasks', 'pinned');
         if (!hasPinned) {
             await db.schema.alterTable('tasks', t => t.boolean('pinned').defaultTo(false));
+        }
+        const hasFocused = await db.schema.hasColumn('tasks', 'focused');
+        if (!hasFocused) {
+            await db.schema.alterTable('tasks', t => t.boolean('focused').defaultTo(false));
         }
         const hasCreatedAt = await db.schema.hasColumn('tasks', 'created_at');
         if (!hasCreatedAt) {

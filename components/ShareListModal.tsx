@@ -13,7 +13,7 @@ interface ShareListModalProps {
 }
 
 const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, onClose, theme, apiFetch, onListUpdated }) => {
-  const { lists } = useTaskBox();
+  const { lists, user } = useTaskBox();
   
   // Resolve the fresh list from context to ensure UI updates immediately after actions
   const list = useMemo(() => lists.find(l => l.id === initialListProp.id), [lists, initialListProp.id]);
@@ -38,6 +38,8 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
   }, [fetchAllUsers]);
 
   if (!list) return null; // Should not happen
+
+  const isOwner = user?.id === list.ownerId;
 
   const handleShare = async () => {
       if (!selectedUserId) return;
@@ -67,6 +69,9 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
           });
           if (!response.ok) throw new Error('Failed to remove user');
           onListUpdated();
+          if (userId === user?.id) {
+              onClose(); // Close modal if I removed myself
+          }
       } catch (e) {
           setError('Could not remove user.');
       }
@@ -75,7 +80,6 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
   const isOrange = theme === 'orange';
   const themeRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const buttonColor = isOrange ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-500 hover:bg-blue-600';
-  // Fix #2: Ensure input background provides contrast for text
   const inputClass = isOrange 
     ? 'bg-gray-800 border-gray-600 text-white' 
     : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white';
@@ -85,36 +89,47 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
   return (
     <Modal title={`Settings for "${list.title}"`} onClose={onClose} theme={theme}>
       <div className="space-y-4">
-        <div>
-            <h3 className="font-semibold mb-2">Share with new user:</h3>
-            <div className="flex gap-2">
-                <select 
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className={`flex-grow px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm ${inputClass}`}
-                >
-                    <option value="">Select a user...</option>
-                    {usersToShareWith.map(user => (
-                        <option key={user.id} value={user.id}>{user.username}</option>
-                    ))}
-                </select>
-                <button onClick={handleShare} className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm ${buttonColor}`} disabled={!selectedUserId}>
-                    Share
-                </button>
+        {isOwner ? (
+            <div>
+                <h3 className="font-semibold mb-2">Share with new user:</h3>
+                <div className="flex gap-2">
+                    <select 
+                        value={selectedUserId}
+                        onChange={(e) => setSelectedUserId(e.target.value)}
+                        className={`flex-grow px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm ${inputClass}`}
+                    >
+                        <option value="">Select a user...</option>
+                        {usersToShareWith.map(user => (
+                            <option key={user.id} value={user.id}>{user.username}</option>
+                        ))}
+                    </select>
+                    <button onClick={handleShare} className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm ${buttonColor}`} disabled={!selectedUserId}>
+                        Share
+                    </button>
+                </div>
+                 {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
             </div>
-             {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-        </div>
+        ) : (
+            <div className="p-3 bg-blue-50 border-l-4 border-blue-400 dark:bg-blue-900/20 dark:border-blue-600">
+                <p className="text-sm text-blue-700 dark:text-blue-200">You are a shared member of this list.</p>
+            </div>
+        )}
 
         <div className="pt-4 border-t dark:border-gray-700">
             <h3 className="font-semibold mb-2">Currently shared with:</h3>
             {list.sharedWith.length > 0 ? (
                 <ul className="space-y-2">
-                    {list.sharedWith.map(user => (
-                        <li key={user.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md">
-                            <span className={isOrange ? 'text-gray-900' : 'dark:text-gray-200'}>{user.username}</span>
-                            <button onClick={() => handleRemoveShare(user.id)} className="text-xs text-red-500 hover:underline">
-                                Remove
-                            </button>
+                    {list.sharedWith.map(sharedUser => (
+                        <li key={sharedUser.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md">
+                            <span className={isOrange ? 'text-gray-900' : 'dark:text-gray-200'}>
+                                {sharedUser.username} {sharedUser.id === user?.id ? '(You)' : ''}
+                            </span>
+                            {/* Owner can remove anyone. Shared user can only remove themselves. */}
+                            {(isOwner || sharedUser.id === user?.id) && (
+                                <button onClick={() => handleRemoveShare(sharedUser.id)} className="text-xs text-red-500 hover:underline">
+                                    {sharedUser.id === user?.id ? 'Leave List' : 'Remove'}
+                                </button>
+                            )}
                         </li>
                     ))}
                 </ul>

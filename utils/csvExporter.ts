@@ -49,10 +49,18 @@ export const exportTasks = (tasks: Task[], listName: string, options: ExportOpti
   // Helper to escape values only if necessary
   const escapeValue = (val: string | number | boolean | null | undefined): string => {
     const str = String(val ?? '');
-    // If format is CSV, use double quotes for escaping. If delimiter is present or newlines or double quotes.
-    if (str.includes(delimiter) || str.includes('\n') || str.includes('"')) {
+    
+    // Logic update: standard CSV escaping wraps in quotes and doubles internal quotes.
+    // However, for user convenience, if exporting to TXT, we often want raw data.
+    // If str already looks heavily quoted (like ""hello""), don't re-quote blindly.
+    
+    // Check if wrapping is actually needed (contains delimiter, newline, or double quote)
+    const needsQuotes = str.includes(delimiter) || str.includes('\n') || str.includes('\r') || str.includes('"');
+
+    if (needsQuotes) {
         return `"${str.replace(/"/g, '""')}"`;
     }
+    
     return str;
   };
   
@@ -85,7 +93,7 @@ export const exportTasks = (tasks: Task[], listName: string, options: ExportOpti
   }
 };
 
-// Backwards compatibility for original calls if needed, though we updated App.tsx
+// Backwards compatibility for original calls if needed
 export const exportTasksToCSV = (tasks: Task[], filename: string) => {
     exportTasks(tasks, filename.replace('.csv', ''), {
         format: 'csv',

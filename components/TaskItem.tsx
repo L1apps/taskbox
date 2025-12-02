@@ -21,7 +21,7 @@ const ImportanceFlag: React.FC<{ level: number; onClick: () => void; }> = ({ lev
     const current = levels[level] || levels[0];
 
     return (
-        <Tooltip text={current.label}>
+        <Tooltip text={current.label} debugLabel="Task Importance Toggle">
             <button onClick={onClick} className={`transition-transform duration-150 ease-in-out hover:scale-125 ${current.color}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M4 4a1 1 0 011-1h1.5a1 1 0 01.6.2l1.9 1.9 1.9-1.9a1 1 0 01.6-.2H18a1 1 0 011 1v10a1 1 0 01-1 1h-1.5a1 1 0 01-.6-.2l-1.9-1.9-1.9 1.9a1 1 0 01-.6.2H5a1 1 0 01-1-1V4z" />
@@ -34,11 +34,35 @@ const ImportanceFlag: React.FC<{ level: number; onClick: () => void; }> = ({ lev
 
 const PinButton: React.FC<{ pinned: boolean; onClick: () => void }> = ({ pinned, onClick }) => {
     return (
-        <Tooltip text={pinned ? "Unpin task" : "Pin task to top"}>
+        <Tooltip text={pinned ? "Unpin task" : "Pin task to top"} debugLabel="Task Pin Button">
             <button onClick={onClick} className={`transition-transform duration-150 ease-in-out hover:scale-125 ${pinned ? 'text-blue-500' : 'text-gray-400'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z" />
                 </svg>
+            </button>
+        </Tooltip>
+    );
+};
+
+const FocusButton: React.FC<{ focused: boolean; onClick: () => void; disabled: boolean }> = ({ focused, onClick, disabled }) => {
+    return (
+        <Tooltip text={focused ? "Unfocus Task" : "Focus Task"} debugLabel="Task Focus Toggle">
+            <button 
+                onClick={onClick} 
+                disabled={disabled}
+                className={`transition-transform duration-150 ease-in-out hover:scale-125 ${focused ? 'text-blue-600' : 'text-gray-400'} ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+            >
+                {focused ? (
+                    // Focused: Circle with Check (Blue)
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                ) : (
+                    // Unfocused: Circle with Plus
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                )}
             </button>
         </Tooltip>
     );
@@ -73,6 +97,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
   const handleTogglePinned = () => {
       onUpdate({ ...task, pinned: !task.pinned });
   };
+  
+  const handleToggleFocus = () => {
+      if (task.completed) return;
+      onUpdate({ ...task, focused: !task.focused });
+  };
 
   const handleToggleComplete = () => {
     if(isDependencyIncomplete) return;
@@ -99,21 +128,21 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
   const focusRingColor = isOrange ? 'focus:ring-orange-500' : 'focus:ring-blue-500';
   const borderFocusColor = isOrange ? 'border-orange-500' : 'border-blue-500';
   const inputTextColor = isOrange ? 'text-gray-900' : '';
-  const readOnlyTextColor = isOrange ? 'text-gray-900' : 'text-gray-900 dark:text-gray-100';
+  const readOnlyTextColor = isOrange ? 'text-gray-900' : 'text-gray-500 dark:text-gray-400'; // Changed color slightly for icon
   
   // Fix: Allowed pinned tasks to appear in dependency dropdown
   const availableDependencies = allTasksInList.filter(t => t.id !== task.id);
 
   const CheckboxWrapper = ({ children }: { children: React.ReactNode }) => {
     if (isDependencyIncomplete && dependencyTask) {
-        return <Tooltip text={`Complete "${dependencyTask.description}" first`} align="left">{children}</Tooltip>;
+        return <Tooltip text={`Complete "${dependencyTask.description}" first`} align="left" debugLabel="Task Checkbox (Blocked)">{children}</Tooltip>;
     }
-    return <Tooltip text="Mark task as complete" align="left">{children}</Tooltip>;
+    return <Tooltip text="Mark task as complete" align="left" debugLabel="Task Checkbox">{children}</Tooltip>;
   };
 
   const createdDate = task.createdAt 
-    ? new Date(task.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) 
-    : '-';
+    ? new Date(task.createdAt).toLocaleString() 
+    : 'N/A';
 
   return (
     <>
@@ -132,9 +161,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             />
         </CheckboxWrapper>
         
-        <div className="flex items-center space-x-3 mr-3">
+        <div className="flex items-center space-x-2 mr-3">
             <PinButton pinned={task.pinned} onClick={handleTogglePinned} />
             <ImportanceFlag level={task.importance} onClick={handleToggleImportance} />
+            <FocusButton focused={task.focused} onClick={handleToggleFocus} disabled={task.completed} />
         </div>
       </div>
 
@@ -159,7 +189,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
                 {task.description}
               </p>
               <div className="opacity-0 group-hover/desc:opacity-100 transition-opacity ml-2 shrink-0 self-start mt-1">
-                 <Tooltip text="Copy / Move">
+                 <Tooltip text="Copy / Move" debugLabel="Task Copy/Move Button">
                     <button onClick={handleCopyClick} className="text-gray-400 hover:text-blue-500">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -174,7 +204,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
       {/* Controls Group */}
       <div className="flex items-center justify-end space-x-2 shrink-0 md:ml-4 mt-2 md:mt-0">
         <div className="relative">
-            <Tooltip text="Set task dependency">
+            <Tooltip text="Set task dependency" debugLabel="Task Dependency Dropdown">
                 <select
                     value={task.dependsOn || ''}
                     onChange={handleDependencyChange}
@@ -193,13 +223,16 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             </Tooltip>
         </div>
         
-        <Tooltip text={`Created: ${task.createdAt ? new Date(task.createdAt).toLocaleString() : 'N/A'}`}>
-            <div className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent w-24 text-center text-xs flex items-center justify-center cursor-default ${readOnlyTextColor}`}>
-                {createdDate}
+        <Tooltip text={`Created: ${createdDate}`} debugLabel="Task Creation Date">
+            <div className={`text-sm p-1 rounded bg-gray-200 dark:bg-gray-700 border border-transparent w-10 text-center text-xs flex items-center justify-center cursor-default ${readOnlyTextColor}`}>
+                {/* Rectangular Clock Icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
             </div>
         </Tooltip>
 
-        <Tooltip text="Set Due Date">
+        <Tooltip text="Set Due Date" debugLabel="Task Due Date Input">
             <input
                 type="date"
                 value={task.dueDate || ''}
@@ -208,7 +241,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             />
         </Tooltip>
         
-        <Tooltip text="Delete task" align="right">
+        <Tooltip text="Delete task" align="right" debugLabel="Task Delete Button">
             <button
             onClick={() => onRemove(task.id)}
             className="text-gray-400 hover:text-red-500 transition-colors ml-1"

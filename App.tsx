@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { TaskBoxProvider, useTaskBox } from './contexts/TaskBoxContext';
 import { ModalProvider } from './contexts/ModalContext';
@@ -6,6 +7,7 @@ import Footer from './components/Footer';
 import TaskListTabs from './components/TaskListTabs';
 import TaskListView from './components/TaskListView';
 import SearchResultsView from './components/SearchResultsView';
+import GlobalTaskListView from './components/GlobalTaskListView';
 import ModalManager from './components/ModalManager';
 import LoginPage from './components/LoginPage';
 import SetupPage from './components/SetupPage';
@@ -20,6 +22,7 @@ const MainLayout: React.FC = () => {
         needsSetup, 
         authLoaded,
         activeList, 
+        specialView,
         searchQuery,
         setToken,
         setUser
@@ -36,6 +39,13 @@ const MainLayout: React.FC = () => {
     if (!user) {
         return <LoginPage onLogin={(t, u) => { setToken(t); setUser(u); }} theme={theme} />;
     }
+
+    const renderMainContent = () => {
+        if (searchQuery) return <SearchResultsView />;
+        if (specialView) return <GlobalTaskListView />;
+        if (activeList) return <TaskListView key={activeList.id} />;
+        return <div className="p-16 text-center text-gray-500 flex flex-col justify-center h-full">Select a list or create one.</div>;
+    };
 
     return (
         <div className={`flex flex-col min-h-screen font-sans transition-colors duration-300 ${theme === 'orange' ? 'bg-gray-900 text-gray-100' : 'bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200'}`}>
@@ -55,15 +65,7 @@ const MainLayout: React.FC = () => {
                               <TaskListTabs />
                           </div>
                           <div className="flex-grow overflow-hidden h-full z-0">
-                                {searchQuery ? (
-                                    <SearchResultsView />
-                                ) : (
-                                    activeList ? (
-                                        <TaskListView key={activeList.id} />
-                                    ) : (
-                                        <div className="p-16 text-center text-gray-500 flex flex-col justify-center h-full">Select a list or create one.</div>
-                                    )
-                                )}
+                                {renderMainContent()}
                           </div>
                         </>
                     )}

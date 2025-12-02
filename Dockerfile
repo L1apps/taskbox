@@ -26,7 +26,7 @@ WORKDIR /app
 
 # Add Metadata Labels
 LABEL maintainer="Level 1 Apps"
-LABEL version="3.9.5"
+LABEL version="3.9.12"
 LABEL description="TaskBox - Standalone Task Manager"
 LABEL com.l1apps.www="Level 1 Apps"
 
@@ -42,9 +42,8 @@ RUN npm install --omit=dev
 RUN apk del python3 make g++
 
 # Copy the server-side JavaScript files needed to run the backend.
-COPY server.js .
-COPY database.js .
-COPY api.js .
+# Grouping the copy ensures better layer caching and atomic failure if files are missing.
+COPY server.js database.js api.js reset_admin.js ./
 
 # Copy the built frontend from the builder stage.
 COPY --from=builder /app/dist ./dist

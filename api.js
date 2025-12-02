@@ -27,7 +27,8 @@ const normalizeTask = (task) => {
         ...task,
         createdAt: task.created_at, 
         completed: Boolean(task.completed),
-        pinned: Boolean(task.pinned)
+        pinned: Boolean(task.pinned),
+        focused: Boolean(task.focused)
     };
 };
 
@@ -288,7 +289,16 @@ export function createApiRouter(db) {
     if (parentId) {
         const [parent] = await db('lists').where({ id: parentId, owner_id: req.user.id });
         if (!parent) return res.status(403).json({ message: "Cannot create sublist in a list you don't own." });
-        if (parent.parent_id) return res.status(409).json({ message: "Max nesting depth reached. Sublists cannot have sublists." });
+        
+        // Depth Check: Allow 3 levels (Top -> Master -> Sub)
+        // If parent has a parent, check if that parent also has a parent.
+        if (parent.parent_id) {
+            const [grandparent] = await db('lists').where({ id: parent.parent_id });
+            if (grandparent && grandparent.parent_id) {
+                 return res.status(409).json({ message: "Max nesting depth reached (3 tiers)." });
+            }
+        }
+
         const tasksInParent = await db('tasks').where({ list_id: parentId }).first();
         if (tasksInParent) return res.status(409).json({ message: "Parent list contains tasks. Cannot add sublists." });
         validParentId = parentId;
@@ -334,7 +344,15 @@ export function createApiRouter(db) {
           } else {
               const [parent] = await db('lists').where({ id: parentId, owner_id: req.user.id });
               if (!parent) return res.status(403).json({ message: "Target parent not found or access denied." });
-              if (parent.parent_id) return res.status(409).json({ message: "Cannot move list into a sublist (Max depth 2 tiers)." });
+              
+              // Depth Check for Move
+              if (parent.parent_id) {
+                  const [grandparent] = await db('lists').where({ id: parent.parent_id });
+                  if (grandparent && grandparent.parent_id) {
+                       return res.status(409).json({ message: "Cannot move list here. Max nesting depth reached (3 tiers)." });
+                  }
+              }
+
               const parentTasks = await db('tasks').where({ list_id: parentId }).first();
               if (parentTasks) return res.status(409).json({ message: "Target list contains tasks. Cannot move list into it." });
               if (Number(parentId) === Number(req.params.id)) return res.status(400).json({ message: "Cannot move list into itself." });
@@ -567,7 +585,7 @@ export function createApiRouter(db) {
 
   router.put('/tasks/:taskId', authenticate, async (req, res) => {
     const { taskId } = req.params;
-    const { description, completed, dueDate, importance, dependsOn, pinned } = req.body;
+    const { description, completed, dueDate, importance, dependsOn, pinned, focused } = req.body;
     
     const [task] = await db('tasks').where('id', taskId);
     if(!task) return res.status(404).json({message: 'Task not found'});
@@ -582,6 +600,29 @@ export function createApiRouter(db) {
         const [depTask] = await db('tasks').where('id', dependsOn);
         if (!depTask || depTask.list_id !== task.list_id) return res.status(409).json({ message: "Invalid dependency." });
     }
+    
+    // Focused Logic
+    if (focused === true) {
+        if (task.completed || completed === true) {
+            return res.status(400).json({ message: "Cannot focus a completed task." });
+        }
+        
+        // Count currently focused tasks for this user (Accessing owned lists or shared lists)
+        // We find all lists the user has access to, then count focused tasks in those lists.
+        const ownedLists = db('lists').where('owner_id', req.user.id).select('id');
+        const sharedLists = db('list_shares').where('user_id', req.user.id).select('list_id as id');
+        
+        const focusedCountResult = await db('tasks')
+            .whereIn('list_id', db.unionAll([ownedLists, sharedLists]))
+            .andWhere('focused', true)
+            .count('id as count')
+            .first();
+            
+        if (focusedCountResult && focusedCountResult.count >= 100) {
+            return res.status(400).json({ message: "Focused list limit reached (100 tasks)." });
+        }
+    }
+
     if (completed === true && (dependsOn || task.dependsOn)) {
         const depId = dependsOn !== undefined ? dependsOn : task.dependsOn;
         if(depId) {
@@ -590,7 +631,13 @@ export function createApiRouter(db) {
         }
     }
 
-    const updatePayload = { description, completed, dueDate, importance, dependsOn, pinned };
+    const updatePayload = { description, completed, dueDate, importance, dependsOn, pinned, focused };
+    
+    // If completing, remove focus
+    if (completed === true) {
+        updatePayload.focused = false;
+    }
+
     Object.keys(updatePayload).forEach(key => updatePayload[key] === undefined && delete updatePayload[key]);
     
     await db('tasks').where('id', taskId).update(updatePayload);

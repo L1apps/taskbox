@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.9.5
+**Version:** 3.9.12
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -76,60 +76,45 @@ docker run -d \
   l1apps/taskbox:latest
 ```
 
-### Pre-Release Builds
-
-If you wish to test the latest features before they are marked as stable, you can look for tags marked as pre-release on Docker Hub (e.g., `l1apps/taskbox:3.9.0-rc1`). Use caution as these may contain bugs.
-
 ---
 
 ## Features
 
+*   **Focused List:** Keep track of your most important tasks using the new permanent "Focused" list.
+*   **Global Views:** View tasks across all lists via the "File Cabinet". Now includes list filtering and dependency visualization.
 *   **Global Search:** Instantly find tasks across all your lists using the search bar in the header.
-*   **List Sorting & Pinning:** Sort lists by name and pin important lists to the top.
+*   **Printing:** Clean, ink-friendly print view. Supports printing Global Views and Focused lists properly across multiple pages.
 *   **Duplicate Prevention:** Strict checks during paste/import to prevent creating duplicate tasks.
-*   **Printing:** Clean print view for tasks (e.g., Grocery Lists).
-*   **Context-Aware Architecture:** Faster performance and smoother state management.
-*   **Clipboard Management:** Copy active lists to clipboard (All Data or Descriptions Only) or paste tasks easily.
+*   **Clipboard Management:** Copy active lists to clipboard (All Data or Descriptions Only) or paste tasks.
 *   **Sidebar Toolbar:** Centralized control for list actions (Rename, Share, Move, Merge, Delete).
-*   **Demo Data:** Auto-generates example list on install. Admin can "Reset to Defaults".
-*   **Nested Lists:** Hierarchical structure (Top Level -> Master List -> Sublist).
+*   **Nested Lists:** Hierarchical structure (Top Level -> Master List -> Sublist -> Nested Sublist). Max nesting depth is 3 levels.
+*   **Persistent View:** Your sort order and view filters are saved automatically.
 *   **Merge Lists:** Consolidate lists by merging them together.
-*   **Renaming:** Rename any list or sublist easily.
-*   **Recursive Sharing:** Sharing a Parent List automatically grants access to its sublists.
-*   **Copy/Move Tasks:** Easily duplicate or move tasks between lists.
 *   **Multi-User Support:** Secure user registration and login system.
-*   **User Settings:** Change username, password, and session timeout.
-*   **Admin Panel:** Create/Delete users, reset passwords, and view/clear security logs.
-*   **Database Maintenance:** Prune orphans, Purge all data, and Vacuum database.
+*   **Admin Panel:** User management, security logs, and database maintenance.
 *   **Database Backup/Restore:** Download full backups or restore DB via file upload (Admin only).
-*   **Duplicate Checker:** Real-time warning if a task description already exists.
-*   **Pinned Tasks:** Pin important tasks to the top.
-*   **3-Level Importance:** Low, Medium, High importance flags.
-*   **Task Dependencies:** Set prerequisites for tasks.
-*   **Advanced Import/Export:** Support for CSV and Text files with custom delimiters.
-*   **Purge Completed:** Quickly remove completed tasks.
-*   **Bulk Actions:** Toggle check/uncheck all tasks.
+*   **Import/Export:** Support for CSV and Text files. (Import disabled in Global Views).
 *   **Statistics Page:** View completion rates and overdue tasks.
 *   **Custom Themes:** Light, Dark, and High-Contrast Orange/Black.
-*   **Emergency Recovery:** CLI script to reset lost admin passwords.
 
 ---
 
-## Tech Stack
+## Troubleshooting & Diagnostics
 
-*   **Frontend:** React (Context API), Tailwind CSS
-*   **Backend:** Node.js, Express.js with JWT
-*   **Database:** SQLite
-*   **Containerization:** Docker (Alpine Linux base)
+If you encounter issues or need to report bugs, you can enable **Debug Mode**. This reveals internal object names and component IDs on tooltips to help identify specific UI elements.
+
+To enable Debug Mode, append one of the following to your URL:
+*   `http://<your-ip>:6500/?debug=on`
+*   `http://<your-ip>:6500/?tooltips=on`
+*   `http://<your-ip>:6500/debug`
+
+When enabled, hovering over any interactive element (buttons, checkboxes, inputs) will display its internal debug label in a high-contrast fuchsia tooltip.
 
 ---
 
 ## Recovering Lost Admin Password
 
 If you lose access to the admin account, you can reset the password directly via the container CLI:
-
-1.  Open a terminal on your host machine.
-2.  Run the following command:
 
 ```bash
 docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
@@ -141,18 +126,15 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
-*   **v3.9.5:** Database Backup/Restore (Import/Export), Print font/layout fixes.
-*   **v3.9.4:** Enhanced Printing (Clean Checklist), Stats Sorting, UI Improvements.
-*   **v3.9.3:** Performance optimization (Batch actions), Print CSS fixes, React Rendering tweaks.
-*   **v3.9.2:** List Sorting, List Pinning, Printer-friendly view, Improved Folder/Stats behavior.
-*   **v3.9.1:** Duplicate prevention, UI Polish (Clear Search, Icon Layout), "Descriptions Only" copy option.
-*   **v3.9.0:** Major Refactor (Context API), Global Search, Enhanced Copy/Paste, UX Fixes.
-*   **v3.8.0:** Copy/Move Tasks to other lists, Upward Sharing Logic, Strict Owner Permissions, Docker Labels.
-*   **v3.7.x:** Statistics logic, UI Polishing, Warning Modals.
-*   **v3.5.0:** Sidebar Toolbar (New UX), Admin Refresh logic.
-*   **v3.4.0:** Demo Data Seeding, Reset to Defaults.
-*   **v3.1.0:** Nested Lists (Sublists), Recursive Sharing.
-*   **v2.x:** Admin Panel, Multi-User, Import/Export tools.
+*   **v3.9.12:** Fixed CSV export formatting (double-quotes), restricted List Sharing permissions, added Debug Mode for diagnostics.
+*   **v3.9.11:** UI Enhancements (Icons), Global View Filtering, Dependency Grouping, Multi-page printing fix.
+*   **v3.9.10:** Fixed multi-page printing overflow. Disabled Import in Global Views.
+*   **v3.9.9:** Enhanced Global Views (Sort/Search/Print), Global View Export.
+*   **v3.9.8:** Focused List (System List), Task Focus Toggle.
+*   **v3.9.7:** Global Views (File Cabinet), 3-Tier Hierarchy UI adjustments.
+*   **v3.9.5:** Database Backup/Restore (Import/Export).
+*   **v3.9.4:** Enhanced Printing (Clean Checklist).
+*   **v3.9.0:** Major Refactor (Context API), Global Search.
 *   **v1.0.0:** Initial Release.
 
 ---

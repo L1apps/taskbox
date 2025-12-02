@@ -6,13 +6,13 @@ TaskBox is a standalone, privacy-focused task management application designed to
 ## Core Concepts
 
 ### 1. Hierarchy & Containers
-TaskBox uses a strict 2-level hierarchy to keep organization clean:
+TaskBox uses a strict **3-level hierarchy** to keep organization clean while allowing depth:
 1.  **Top Level:** The root view where your Master Lists live.
-2.  **Master List:** A top-level list. It can behave in one of two ways:
-    *   **Task List:** Contains tasks directly.
-    *   **Container List:** Contains **Sublists**.
-    *   *Rule:* A list cannot contain both tasks and sublists.
-3.  **Sublist:** A list nested inside a Master List. It can only contain tasks. It cannot contain other lists.
+2.  **Level 1 (Master List):** A top-level list. It can contain tasks OR Level 2 lists.
+3.  **Level 2 (Sublist):** A list inside a Master List. It can contain tasks OR Level 3 lists.
+4.  **Level 3 (Nested Sublist):** The deepest level. It can only contain Tasks.
+
+*Rule:* Any specific list can contain **Tasks** OR **Sublists**, but never both at the same time. This is known as "Container Mode".
 
 ### 2. Permissions
 *   **Owner:** The user who created the list. Only the owner can Move, Merge, Delete, or Share the list.
@@ -28,7 +28,28 @@ TaskBox uses a strict 2-level hierarchy to keep organization clean:
 
 ### 🔍 Search
 *   **Global Search:** Located in the header, allows searching tasks across **all** lists.
-*   **Local Search:** Located in the task toolbar, filters tasks within the **current** list only.
+*   **Local Search:** Located in the task toolbar, filters tasks within the **current** view (works in specific lists AND Global Views).
+
+### 🎯 Focused List
+The **Focused** list is a permanent system list located at the top of your sidebar (Blue List Icon). It is designed for your immediate priorities.
+*   **Add to Focused:** Click the target/crosshair icon (turns blue when active) on any task to add it to the Focused list.
+*   **Features:**
+    *   **Sort & Search:** Sort focused items by due date or importance, or search locally within the list.
+    *   **Export:** Export your focused list to CSV for reporting.
+    *   **Print:** Print your focused priorities.
+*   **Rules:**
+    *   Completed tasks cannot be focused.
+    *   Completing a task automatically removes it from the Focused list.
+    *   Limit: 100 tasks max.
+
+### 📂 Global Views (File Cabinet)
+Located in the sidebar header, the file cabinet icon allows you to see tasks from **all lists** in a single view.
+*   **Filter Lists:** Use the "Filter Lists" dropdown to show tasks from specific lists only while staying in the Global View.
+*   **Show all Tasks:** Aggregates every active task you have access to.
+*   **Show High Importance:** Filters for tasks marked with Red flags.
+*   **Show Pinned Tasks:** Filters for tasks you have pinned.
+*   **Show Dependent Tasks:** Filters for tasks that are waiting on another task. Shows dependency name inline.
+*   **Note:** You cannot Import files or Paste items when in a Global View, as there is no specific list to add them to.
 
 ### 📝 Task Management
 *   **Add Task:** Type in the input field at the bottom of a list and press Enter.
@@ -38,7 +59,7 @@ TaskBox uses a strict 2-level hierarchy to keep organization clean:
 *   **Pin:** Click the pin icon to stick the task to the top of the list, regardless of sorting.
 *   **Dependencies:** Use the dropdown on the right of a task to select a prerequisite. You cannot complete a task until its dependency is finished.
 *   **Copy/Move:** Hover over a task description and click the "Copy" icon (two sheets of paper) to copy or move the task to another list.
-*   **Print:** Click the printer icon in the toolbar. This generates a minimalist checklist view (hiding all app interfaces, icons, and menus) perfect for grocery lists or hardcopy reports. Note: Printing is only available for lists containing tasks (not containers) and is disabled for empty lists.
+*   **Print:** Click the printer icon in the toolbar. This generates a minimalist checklist view suitable for physical printing. It hides all UI chrome and ensures content flows across multiple pages correctly.
 
 ### 📂 List Actions
 Hover over the list name or look at the sidebar toolbar to access actions:
@@ -51,10 +72,11 @@ Hover over the list name or look at the sidebar toolbar to access actions:
 
 ### 📋 Copy / Paste & Import
 *   **Copy / Paste (Clipboard):** Click the clipboard icon in the header.
-    *   **Paste:** Paste a simple list of text (one item per line) to bulk-create tasks.
+    *   **Paste:** Paste a simple list of text (one item per line) to bulk-create tasks. (Disabled for Global Views).
     *   **Copy:** Click "Load Active List" to copy your current list's tasks to the clipboard buffer for use in other apps.
 *   **Import File:** Upload `.csv` or `.txt` files. Supports headers: `Description`, `Completed`, `Date Created`, `Due Date`, `Importance`.
-*   **Export:** Export your list to CSV or Text file.
+    *   *Restriction:* File import is disabled when viewing Global Views (File Cabinet / Focused).
+*   **Export:** Export your current list (or Global View) to CSV or Text file.
 
 ### ⚙️ Admin Panel
 Accessible only to the Admin user via the shield icon in the header.
@@ -75,11 +97,16 @@ TaskBox supports three themes, toggled via the moon/sun icon in the header:
 2.  **Dark:** Low-light gray/black interface.
 3.  **Orange:** High-contrast mode with black backgrounds and bright orange accents.
 
+### 🐞 Diagnostics
+If asked by support to provide UI details, you can enable **Debug Mode**.
+*   **How:** Add `?tooltips=on` to your URL (e.g., `http://...:6500/?tooltips=on`).
+*   **Effect:** Tooltips will show the internal name (ID) of the UI element you are hovering over in bright colors.
+
 ---
 
 ## Technical Limitations
 
-1.  **Max Depth:** You can only nest lists one level deep (Master -> Sublist). You cannot create a sublist inside a sublist.
+1.  **Max Depth:** You can nest lists up to 3 levels deep.
 2.  **Container Rule:** If a list has sublists, you cannot add tasks to it directly. You must add them to one of the sublists.
-3.  **Single Session:** While multiple users are supported, the database is SQLite (file-based). Extremely high write concurrency (hundreds of writes per second) may experience locking, though typical team usage is unaffected.
-4.  **Offline:** As a self-hosted web app, it requires network connectivity to the Docker container. It does not have an offline sync mode for mobile apps.
+3.  **Single Session:** While multiple users are supported, the database is SQLite (file-based). Extremely high write concurrency may experience locking.
+4.  **Offline:** As a self-hosted web app, it requires network connectivity to the Docker container.

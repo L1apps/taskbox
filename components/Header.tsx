@@ -12,7 +12,7 @@ const ThemeIcon: React.FC<{ theme: string }> = ({ theme }) => {
 };
 
 const Header: React.FC = () => {
-  const { theme, toggleTheme, user, handleLogout, activeList, searchQuery, setSearchQuery } = useTaskBox();
+  const { theme, toggleTheme, user, handleLogout, activeList, specialView, searchQuery, setSearchQuery } = useTaskBox();
   const { openModal } = useModal();
   
   const isOrange = theme === 'orange';
@@ -23,15 +23,19 @@ const Header: React.FC = () => {
   const disabledClass = 'opacity-50 cursor-not-allowed';
   const inputBg = isOrange ? 'bg-gray-800 text-gray-100 border-gray-700 focus:ring-orange-500' : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-blue-500';
 
-  // Check if import/export should be disabled
+  // Logic to determine availability of Import/Export actions
   const isContainer = activeList && activeList.children && activeList.children.length > 0;
   const isListEmpty = !activeList || (activeList.tasks && activeList.tasks.length === 0);
 
-  // Import/Paste allowed for Empty lists (to fill them), but NOT Container lists.
-  const isImportPasteDisabled = !activeList || isContainer;
+  // Import/Paste: Disabled for Container Lists. Allowed for Empty Lists or Global Views (Copy only for Global).
+  // Note: PasteModal handles the distinction between "Paste Import" vs "Copy" internally.
+  const isPasteDisabled = isContainer; 
   
-  // Export disabled for Container lists OR Empty lists (nothing to export).
-  const isExportDisabled = !activeList || isContainer || isListEmpty;
+  // File Import must have a specific valid target list. Disabled in Global Views or Container Lists.
+  const isImportFileDisabled = !activeList || isContainer; 
+  
+  // Export: Disabled if Container or (List is Empty AND Not Global View). Global views can be exported even if "empty" conceptually, though usually we check content.
+  const isExportDisabled = isContainer || (isListEmpty && !specialView);
 
   return (
     <header className={`${isOrange ? 'bg-black' : 'bg-white dark:bg-gray-800'} shadow-md sticky top-0 z-30`}>
@@ -78,34 +82,34 @@ const Header: React.FC = () => {
           <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
             {user ? (
               <>
-                <Tooltip text={isContainer ? "Disabled for Container Lists" : "Copy / Paste Tasks"}>
-                  <button onClick={() => openModal('PASTE')} disabled={isImportPasteDisabled} className={`flex ${iconButtonBase} ${isOrange ? orangeHover : defaultHover} ${isImportPasteDisabled ? disabledClass : ''}`}>
+                <Tooltip text={isContainer ? "Disabled for Container Lists" : "Copy / Paste Tasks"} debugLabel="Header Paste Button">
+                  <button onClick={() => openModal('PASTE')} disabled={isPasteDisabled} className={`flex ${iconButtonBase} ${isOrange ? orangeHover : defaultHover} ${isPasteDisabled ? disabledClass : ''}`}>
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                   </button>
                 </Tooltip>
-                <Tooltip text={isContainer ? "Disabled for Container Lists" : "Import from file"}>
-                  <button onClick={() => openModal('IMPORT')} disabled={isImportPasteDisabled} className={`hidden sm:flex ${buttonBase} ${isOrange ? orangeHover : defaultHover} ${isImportPasteDisabled ? disabledClass : ''}`}>
+                <Tooltip text={(isImportFileDisabled) ? "Select a valid list to import" : "Import from file"} debugLabel="Header Import Button">
+                  <button onClick={() => openModal('IMPORT')} disabled={isImportFileDisabled} className={`hidden sm:flex ${buttonBase} ${isOrange ? orangeHover : defaultHover} ${isImportFileDisabled ? disabledClass : ''}`}>
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                      <span className="hidden md:inline">Import</span>
                   </button>
                 </Tooltip>
-                <Tooltip text={isContainer ? "Disabled for Container Lists" : (isListEmpty ? "List is empty" : "Export tasks")}>
+                <Tooltip text={isExportDisabled ? "Nothing to export" : "Export tasks"} debugLabel="Header Export Button">
                   <button onClick={() => openModal('EXPORT')} disabled={isExportDisabled} className={`hidden sm:flex ${buttonBase} ${isOrange ? orangeHover : defaultHover} ${isExportDisabled ? disabledClass : ''}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     <span className="hidden md:inline">Export</span>
                   </button>
                 </Tooltip>
-                <Tooltip text="View on Docker Hub">
+                <Tooltip text="View on Docker Hub" debugLabel="Header Docker Hub Link">
                     <a href="https://hub.docker.com/r/l1apps/taskbox" target="_blank" rel="noopener noreferrer" aria-label="Docker Hub" className={`${iconButtonBase} ${isOrange ? orangeHover : defaultHover}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M23.156 12.1c-.18-.45-.42-.88-.701-1.28-.28-.4-.62-.75-1.001-.93-.38-.18-.8-.22-1.21-.22h-1.63V4.28c0-.52-.18-.989-.52-1.379-.34-.39-.79-.59-1.32-.59H5.21c-.53 0-1 .2-1.34.59-.34.39-.51.859-.51 1.379v5.39H1.72c-.41 0-.83.04-1.21.22-.381.18-.721.53-1.001.93-.28.4-.521.83-.701 1.28C-22.75 12.52-22.84 13-22.84 13.5v2.58c0 .5.08.97.24 1.42.16.45.39.88.701 1.28.28.4.62.75 1.001.93.38.18.8.22 1.21.22h1.64v1.27c0 .52.17 1 .51 1.38.34.38.79.57 1.32.57h10.04c.53 0 1-.19 1.34-.57.34-.38.52-.86.52-1.38v-1.27h1.63c.41 0 .83-.04 1.21-.22.38-.18.72-.53 1.001-.93.28-.4.52-.83.701-1.28.16-.45.24-.92.24-1.42v-2.58c0-.5-.08-.98-.24-1.4zM8.84 14.86c-.11 0-.21-.04-.28-.12a.37.37 0 01-.12-.28v-1.72c0-.11.04-.21.12-.28.08-.08.18-.12.28-.12h1.72c.11 0 .21.04.28.12.08.08.12.18.12.28v1.72c0 .11-.04.21-.12.28a.37.37 0 01-.28.12H8.84zm3.43 0c-.11 0-.21-.04-.28-.12a.37.37 0 01-.12-.28v-1.72c0-.11.04-.21.12-.28.08-.08.18-.12.28-.12h1.72c.11 0 .21.04.28.12.08.08.12.18.12.28v1.72c0 .11-.04.21-.12.28a.37.37 0 01-.28.12h-1.72zm3.44 0c-.11 0-.21-.04-.28-.12a.37.37 0 01-.12-.28v-1.72c0-.11.04-.21.12-.28.08-.08.18-.12.28-.12h1.72c.11 0 .21.04.28.12.08.08.12.18.12.28v1.72c0 .11-.04.21-.12.28a.37.37 0 01-.28.12h-1.72z" /></svg>
                     </a>
                 </Tooltip>
-                <Tooltip text="View Statistics">
+                <Tooltip text="View Statistics" debugLabel="Header Stats Button">
                     <button onClick={() => openModal('STATS')} aria-label="View Statistics" className={`${iconButtonBase} ${isOrange ? orangeHover : defaultHover}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
                     </button>
                 </Tooltip>
-                <Tooltip text="About TaskBox">
+                <Tooltip text="About TaskBox" debugLabel="Header About Button">
                     <button onClick={() => openModal('ABOUT')} aria-label="About TaskBox" className={`${iconButtonBase} ${isOrange ? orangeHover : defaultHover}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
@@ -114,7 +118,7 @@ const Header: React.FC = () => {
                 <div className="flex items-center space-x-2">
                     <div className="flex items-center">
                         <span className="text-sm font-medium hidden sm:inline mr-1">{user.username}</span>
-                        <Tooltip text="User Settings">
+                        <Tooltip text="User Settings" debugLabel="User Settings Button">
                             <button onClick={() => openModal('USER_SETTINGS')} aria-label="User Settings" className={`p-1 rounded-full ${isOrange ? orangeHover : defaultHover}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -124,7 +128,7 @@ const Header: React.FC = () => {
                         </Tooltip>
                     </div>
                     {user.role === 'ADMIN' && (
-                        <Tooltip text="Admin Panel">
+                        <Tooltip text="Admin Panel" debugLabel="Admin Panel Button">
                             <button onClick={() => openModal('ADMIN')} aria-label="Admin Panel" className={`${iconButtonBase} ${isOrange ? orangeHover : defaultHover} text-red-500`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -132,7 +136,7 @@ const Header: React.FC = () => {
                             </button>
                         </Tooltip>
                     )}
-                     <Tooltip text="Logout">
+                     <Tooltip text="Logout" debugLabel="Logout Button">
                         <button onClick={handleLogout} aria-label="Logout" className={`${iconButtonBase} ${isOrange ? orangeHover : defaultHover}`}>
                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                         </button>
@@ -140,7 +144,7 @@ const Header: React.FC = () => {
                 </div>
               </>
             ) : (
-                <Tooltip text="Setup Application">
+                <Tooltip text="Setup Application" debugLabel="Setup Button">
                     <button onClick={(e) => { e.preventDefault(); }} className={`${iconButtonBase} ${isOrange ? orangeHover : defaultHover}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -149,7 +153,7 @@ const Header: React.FC = () => {
                     </button>
                 </Tooltip>
             )}
-            <Tooltip text="Toggle theme">
+            <Tooltip text="Toggle theme" debugLabel="Theme Toggle">
               <button onClick={toggleTheme} className={`p-2 rounded-full transition ${isOrange ? orangeHover : defaultHover}`}>
                 <ThemeIcon theme={theme} />
               </button>

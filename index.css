@@ -59,26 +59,32 @@
         color: black !important;
     }
 
-    /* Reset positioning to ensure flow */
+    /* CRITICAL FIX: Reset positioning and overflow to allow pagination */
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+    }
+
     #root {
         position: static !important;
         width: 100%;
         margin: 0;
         padding: 0;
         overflow: visible !important;
+        height: auto !important;
     }
     
     /* Target the main content area */
     main {
         visibility: visible !important;
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: auto;
+        position: static !important; /* Changed from absolute to static for flow */
+        width: 100% !important;
+        height: auto !important;
         overflow: visible !important;
         margin: 0 !important;
         padding: 0 !important;
+        display: block !important;
     }
 
     /* Hide Sidebar explicitly if structural HTML allows */
@@ -87,11 +93,20 @@
     }
     
     /* Adjust main content width to full page */
+    main > div {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
     main > div > div:last-child {
         width: 100% !important;
         border: none !important;
         height: auto !important;
         overflow: visible !important;
+        display: block !important;
     }
     
     /* Hide scrollbars */

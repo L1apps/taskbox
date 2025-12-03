@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.9.14
+**Version:** 3.9.15
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -127,6 +127,7 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
+*   **v3.9.15:** Enforced User, List, and Task limits for better performance and stability.
 *   **v3.9.14:** Improved Dependency grouping logic, UI consistency in Toolbars, and Importance sorting updates.
 *   **v3.9.13:** Added granular sharing permissions (View/Modify/Full). Updated dependency grouping logic. UI updates for Focus/Importance icons.
 *   **v3.9.12:** Fixed CSV export formatting (double-quotes), restricted List Sharing permissions, added Debug Mode for diagnostics.

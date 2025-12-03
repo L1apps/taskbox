@@ -128,6 +128,9 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 </ul>
 <h3>Technical Limitations</h3>
 <ul>
+    <li><strong>User Limit:</strong> Max 5 Users.</li>
+    <li><strong>List Limits (Per User):</strong> 20 Root Lists, 10 Nested Lists per container.</li>
+    <li><strong>Task Limits (Per User):</strong> 50 Tasks per list, 5,000 Tasks total.</li>
  	<li><strong>Max Depth:</strong> 3 Levels (Master → Sublist → Nested Sublist).</li>
  	<li><strong>Container Rule:</strong> Lists with sublists cannot hold tasks.</li>
  	<li><strong>Dependency Depth:</strong> Max 5 levels.</li>
@@ -208,6 +211,11 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 <h2>Version History</h2>
 [expand title="<strong><em>Click to view full TaskBox changelog</em></strong>"]
 <ul>
+    <li><strong>3.9.15 – 2025-10-20</strong>
+<ul>
+ 	<li>Implemented limits: Max 5 users, Max 20 Root Lists, Max 10 Sublists, Max 50 Tasks/List, Max 5000 Total Tasks.</li>
+</ul>
+</li>
     <li><strong>3.9.14 – 2025-10-18</strong>
 <ul>
  	<li>Improved Dependency grouping logic (Indented View).</li>

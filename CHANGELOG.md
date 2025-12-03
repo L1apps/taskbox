@@ -3,6 +3,15 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [3.9.15] - 2025-10-20
+### Added
+- **Limits:** Implemented usage limits to ensure performance and prevent abuse:
+    - **Max Users:** 5 (Global).
+    - **Root Lists:** 20 per user.
+    - **Sublists:** 10 per parent list.
+    - **Tasks:** 50 per list.
+    - **Total Tasks:** 5000 per user.
+
 ## [3.9.14] - 2025-10-18
 ### Changed
 - **Dependencies:** 

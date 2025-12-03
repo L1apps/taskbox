@@ -11,6 +11,15 @@ const DEFAULT_SESSION_TIMEOUT = process.env.SESSION_TIMEOUT || '7d';
 const SALT_ROUNDS = 10;
 const DB_PATH = process.env.NODE_ENV === 'production' ? '/app/data/taskbox.db' : './data/taskbox.db';
 
+// --- LIMITS CONFIGURATION ---
+const LIMITS = {
+    MAX_USERS: 5,
+    MAX_ROOT_LISTS: 20,
+    MAX_CHILDREN_PER_LIST: 10,
+    MAX_TASKS_PER_LIST: 50,
+    MAX_TOTAL_TASKS_PER_USER: 5000
+};
+
 const logActivity = (db, level, message) => {
     db('activity_log').insert({ level, message })
         .then(() => {
@@ -88,8 +97,16 @@ export function createApiRouter(db) {
 
   router.post('/users/register', async (req, res) => {
       const { username, password } = req.body;
-      const users = await db('users').select('id').limit(1);
-      const role = users.length === 0 ? 'ADMIN' : 'USER';
+      
+      const usersCountResult = await db('users').count('id as count').first();
+      const userCount = usersCountResult.count;
+
+      // Limit Check: Max Users
+      if (userCount >= LIMITS.MAX_USERS) {
+          return res.status(403).json({ message: `Registration closed. Max users (${LIMITS.MAX_USERS}) reached.` });
+      }
+
+      const role = userCount === 0 ? 'ADMIN' : 'USER';
       if (role === 'USER') return res.status(403).json({ message: 'Registration is closed.' });
       if (!username || !password) return res.status(400).json({ message: 'Username and password required.' });
       if (password.length < 6) return res.status(400).json({ message: 'Password too short.' });
@@ -156,6 +173,12 @@ export function createApiRouter(db) {
   // --- Admin Routes ---
   router.post('/admin/users', authenticate, adminOnly, async (req, res) => {
       const { username, password } = req.body;
+      
+      const usersCountResult = await db('users').count('id as count').first();
+      if (usersCountResult.count >= LIMITS.MAX_USERS) {
+          return res.status(403).json({ message: `Max users (${LIMITS.MAX_USERS}) reached.` });
+      }
+
       const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
       const [userId] = await db('users').insert({ username, password_hash, role: 'USER' });
       const [newUser] = await db('users').where({ id: userId }).select('id', 'username', 'role');
@@ -324,7 +347,6 @@ export function createApiRouter(db) {
         if (!parent) return res.status(403).json({ message: "Cannot create sublist in a list you don't own." });
         
         // Depth Check: Allow 3 levels (Top -> Master -> Sub)
-        // If parent has a parent, check if that parent also has a parent.
         if (parent.parent_id) {
             const [grandparent] = await db('lists').where({ id: parent.parent_id });
             if (grandparent && grandparent.parent_id) {
@@ -332,9 +354,21 @@ export function createApiRouter(db) {
             }
         }
 
+        // Limit Check: Max 10 children per container
+        const siblingCountResult = await db('lists').where({ parent_id: parentId }).count('id as count').first();
+        if (siblingCountResult.count >= LIMITS.MAX_CHILDREN_PER_LIST) {
+            return res.status(403).json({ message: `Limit reached: Max ${LIMITS.MAX_CHILDREN_PER_LIST} sublists per list.` });
+        }
+
         const tasksInParent = await db('tasks').where({ list_id: parentId }).first();
         if (tasksInParent) return res.status(409).json({ message: "Parent list contains tasks. Cannot add sublists." });
         validParentId = parentId;
+    } else {
+        // Limit Check: Max 20 Root Lists
+        const rootCountResult = await db('lists').where({ owner_id: req.user.id, parent_id: null }).count('id as count').first();
+        if (rootCountResult.count >= LIMITS.MAX_ROOT_LISTS) {
+            return res.status(403).json({ message: `Limit reached: Max ${LIMITS.MAX_ROOT_LISTS} top-level lists.` });
+        }
     }
 
     const [insertedId] = await db('lists').insert({ title, description, owner_id: req.user.id, parent_id: validParentId, pinned: false });
@@ -381,6 +415,12 @@ export function createApiRouter(db) {
       
       if (parentId !== undefined) {
           if (parentId === null) {
+              // Moving to Root -> Check Root Limits
+              const rootCountResult = await db('lists').where({ owner_id: req.user.id, parent_id: null }).count('id as count').first();
+              // Don't count self if already root (though technically move is a no-op then)
+              if (currentList.parent_id !== null && rootCountResult.count >= LIMITS.MAX_ROOT_LISTS) {
+                  return res.status(403).json({ message: `Limit reached: Max ${LIMITS.MAX_ROOT_LISTS} top-level lists.` });
+              }
               updateData.parent_id = null;
           } else {
               const [parent] = await db('lists').where({ id: parentId, owner_id: req.user.id });
@@ -392,6 +432,12 @@ export function createApiRouter(db) {
                   if (grandparent && grandparent.parent_id) {
                        return res.status(409).json({ message: "Cannot move list here. Max nesting depth reached (3 tiers)." });
                   }
+              }
+
+              // Limit Check: Sibling Limit in target
+              const siblingCountResult = await db('lists').where({ parent_id: parentId }).count('id as count').first();
+              if (siblingCountResult.count >= LIMITS.MAX_CHILDREN_PER_LIST) {
+                  return res.status(403).json({ message: `Target limit reached: Max ${LIMITS.MAX_CHILDREN_PER_LIST} sublists per list.` });
               }
 
               const parentTasks = await db('tasks').where({ list_id: parentId }).first();
@@ -459,13 +505,22 @@ export function createApiRouter(db) {
 
       try {
           await db.transaction(async (trx) => {
+              // Tasks limit check for merge is tricky, skipping for simplicity or would require pre-check
+              // Ideally: Count source tasks + target tasks. If > 50, reject.
+              const sourceCount = await trx('tasks').where({ list_id: sourceId }).count('id as count').first();
+              const targetCount = await trx('tasks').where({ list_id: targetId }).count('id as count').first();
+              
+              if ((sourceCount.count + targetCount.count) > LIMITS.MAX_TASKS_PER_LIST) {
+                  throw new Error(`Merge would exceed limit of ${LIMITS.MAX_TASKS_PER_LIST} tasks per list.`);
+              }
+
               await trx('tasks').where({ list_id: sourceId }).update({ list_id: targetId });
               await trx('lists').where({ id: sourceId }).del();
           });
           res.status(200).json({ message: 'Lists merged successfully.' });
       } catch (e) {
           console.error(e);
-          res.status(500).json({ message: 'Merge failed.' });
+          res.status(500).json({ message: e.message || 'Merge failed.' });
       }
   });
 
@@ -568,6 +623,23 @@ export function createApiRouter(db) {
       const { description } = req.body;
       if (!description) return res.status(400).json({ message: "Description required." });
       
+      // Limit Check: Tasks per List
+      const listTaskCount = await db('tasks').where({ list_id: req.params.listId }).count('id as count').first();
+      if (listTaskCount.count >= LIMITS.MAX_TASKS_PER_LIST) {
+          return res.status(403).json({ message: `List limit reached: Max ${LIMITS.MAX_TASKS_PER_LIST} tasks per list.` });
+      }
+
+      // Limit Check: Total Tasks per User
+      const totalTasksResult = await db('tasks')
+          .join('lists', 'tasks.list_id', 'lists.id')
+          .where('lists.owner_id', req.user.id)
+          .count('tasks.id as count')
+          .first();
+      
+      if (totalTasksResult.count >= LIMITS.MAX_TOTAL_TASKS_PER_USER) {
+          return res.status(403).json({ message: `Account limit reached: Max ${LIMITS.MAX_TOTAL_TASKS_PER_USER} tasks total.` });
+      }
+
       const [insertedId] = await db('tasks').insert({ 
           description, list_id: req.params.listId, importance: 0, pinned: false, completed: false, created_at: new Date() 
       });
@@ -582,6 +654,23 @@ export function createApiRouter(db) {
       if (children) return res.status(409).json({ message: "List contains sublists. Cannot import tasks." });
 
       const { tasks } = req.body;
+      
+      // Limit Checks for Bulk Import
+      const listTaskCount = await db('tasks').where({ list_id: req.params.listId }).count('id as count').first();
+      if (listTaskCount.count + tasks.length > LIMITS.MAX_TASKS_PER_LIST) {
+          return res.status(403).json({ message: `Import would exceed limit of ${LIMITS.MAX_TASKS_PER_LIST} tasks per list.` });
+      }
+
+      const totalTasksResult = await db('tasks')
+          .join('lists', 'tasks.list_id', 'lists.id')
+          .where('lists.owner_id', req.user.id)
+          .count('tasks.id as count')
+          .first();
+      
+      if (totalTasksResult.count + tasks.length > LIMITS.MAX_TOTAL_TASKS_PER_USER) {
+          return res.status(403).json({ message: `Import would exceed account limit of ${LIMITS.MAX_TOTAL_TASKS_PER_USER} tasks.` });
+      }
+
       const tasksToInsert = tasks.map(t => ({
           description: t.description || "Untitled",
           completed: !!t.completed,
@@ -634,6 +723,26 @@ export function createApiRouter(db) {
 
       const targetChildren = await db('lists').where({ parent_id: targetListId }).first();
       if (targetChildren) return res.status(409).json({ message: "Target list contains sublists. Cannot add tasks." });
+
+      // Limit Checks for Copy/Move
+      // 1. Target List Limit
+      const targetListCount = await db('tasks').where({ list_id: targetListId }).count('id as count').first();
+      if (targetListCount.count >= LIMITS.MAX_TASKS_PER_LIST) {
+          return res.status(403).json({ message: `Target list full. Max ${LIMITS.MAX_TASKS_PER_LIST} tasks per list.` });
+      }
+
+      // 2. Account Total Limit (Only for Copy, Move doesn't increase total)
+      if (!move) {
+          const totalTasksResult = await db('tasks')
+            .join('lists', 'tasks.list_id', 'lists.id')
+            .where('lists.owner_id', req.user.id)
+            .count('tasks.id as count')
+            .first();
+          
+          if (totalTasksResult.count >= LIMITS.MAX_TOTAL_TASKS_PER_USER) {
+              return res.status(403).json({ message: `Account limit reached: Max ${LIMITS.MAX_TOTAL_TASKS_PER_USER} tasks total.` });
+          }
+      }
 
       if (move) {
           await db('tasks').where('id', taskId).update({ list_id: targetListId });

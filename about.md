@@ -109,8 +109,14 @@ If asked by support to provide UI details, you can enable **Debug Mode**.
 
 ## Technical Limitations
 
-1.  **Max Depth:** You can nest lists up to 3 levels deep.
-2.  **Container Rule:** If a list has sublists, you cannot add tasks to it directly. You must add them to one of the sublists.
-3.  **Dependency Depth:** Tasks can have dependencies nested up to 5 levels deep.
-4.  **Single Session:** While multiple users are supported, the database is SQLite (file-based). Extremely high write concurrency may experience locking.
-5.  **Offline:** As a self-hosted web app, it requires network connectivity to the Docker container.
+1.  **User Limit:** Maximum **5 Users** (including Admin).
+2.  **List Limits (Per User):**
+    *   **20** Grandparent (Root) Lists.
+    *   **10** Parent/Child (Nested) Lists per container.
+3.  **Task Limits (Per User):**
+    *   **50** Tasks per specific list.
+    *   **5,000** Tasks total per user.
+4.  **Max Depth:** 3 Levels (Master → Sublist → Nested Sublist).
+5.  **Dependency Depth:** Max 5 levels.
+6.  **Single Session:** SQLite may lock under heavy parallel writes.
+7.  **No Offline Mode:** Requires network to container.

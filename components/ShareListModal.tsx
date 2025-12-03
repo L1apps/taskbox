@@ -20,6 +20,7 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [permission, setPermission] = useState<string>('FULL');
   const [error, setError] = useState('');
 
   const fetchAllUsers = useCallback(async () => {
@@ -47,7 +48,7 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
       try {
           const response = await apiFetch(`/api/lists/${list.id}/shares`, {
               method: 'POST',
-              body: JSON.stringify({ userId: Number(selectedUserId) }),
+              body: JSON.stringify({ userId: Number(selectedUserId), permission }),
           });
           if (!response.ok) {
               const data = await response.json();
@@ -86,32 +87,57 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
 
   const usersToShareWith = allUsers.filter(u => u.id !== list.ownerId && !list.sharedWith.some(su => su.id === u.id));
 
+  const getPermissionLabel = (perm?: string) => {
+      if (perm === 'VIEW') return 'View Only';
+      if (perm === 'MODIFY') return 'Modify';
+      if (perm === 'FULL') return 'Full Access';
+      return 'Unknown';
+  };
+
   return (
     <Modal title={`Settings for "${list.title}"`} onClose={onClose} theme={theme}>
       <div className="space-y-4">
         {isOwner ? (
-            <div>
-                <h3 className="font-semibold mb-2">Share with new user:</h3>
-                <div className="flex gap-2">
+            <div className="space-y-2">
+                <h3 className="font-semibold mb-1">Share with new user:</h3>
+                <div className="grid grid-cols-2 gap-2">
                     <select 
                         value={selectedUserId}
                         onChange={(e) => setSelectedUserId(e.target.value)}
-                        className={`flex-grow px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm ${inputClass}`}
+                        className={`col-span-2 px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm ${inputClass}`}
                     >
                         <option value="">Select a user...</option>
                         {usersToShareWith.map(user => (
                             <option key={user.id} value={user.id}>{user.username}</option>
                         ))}
                     </select>
-                    <button onClick={handleShare} className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm ${buttonColor}`} disabled={!selectedUserId}>
+                    
+                    <select
+                        value={permission}
+                        onChange={(e) => setPermission(e.target.value)}
+                         className={`col-span-1 px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm ${inputClass}`}
+                    >
+                        <option value="VIEW">View Only</option>
+                        <option value="MODIFY">Modify</option>
+                        <option value="FULL">Full Access</option>
+                    </select>
+
+                    <button onClick={handleShare} className={`col-span-1 px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm ${buttonColor}`} disabled={!selectedUserId}>
                         Share
                     </button>
                 </div>
+                <p className="text-xs text-gray-500">
+                    <b>View Only:</b> Read-only access.<br/>
+                    <b>Modify:</b> Add/Edit/Complete tasks. Cannot delete tasks.<br/>
+                    <b>Full Access:</b> All task actions including delete.
+                </p>
                  {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
             </div>
         ) : (
             <div className="p-3 bg-blue-50 border-l-4 border-blue-400 dark:bg-blue-900/20 dark:border-blue-600">
-                <p className="text-sm text-blue-700 dark:text-blue-200">You are a shared member of this list.</p>
+                <p className="text-sm text-blue-700 dark:text-blue-200">
+                    You are a shared member of this list with <b>{getPermissionLabel(list.currentUserPermission)}</b> permissions.
+                </p>
             </div>
         )}
 
@@ -121,9 +147,13 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
                 <ul className="space-y-2">
                     {list.sharedWith.map(sharedUser => (
                         <li key={sharedUser.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded-md">
-                            <span className={isOrange ? 'text-gray-900' : 'dark:text-gray-200'}>
-                                {sharedUser.username} {sharedUser.id === user?.id ? '(You)' : ''}
-                            </span>
+                            <div className="flex flex-col">
+                                <span className={`${isOrange ? 'text-gray-900' : 'dark:text-gray-200'} font-medium`}>
+                                    {sharedUser.username} {sharedUser.id === user?.id ? '(You)' : ''}
+                                </span>
+                                <span className="text-xs text-gray-500 uppercase">{getPermissionLabel(sharedUser.permission)}</span>
+                            </div>
+                            
                             {/* Owner can remove anyone. Shared user can only remove themselves. */}
                             {(isOwner || sharedUser.id === user?.id) && (
                                 <button onClick={() => handleRemoveShare(sharedUser.id)} className="text-xs text-red-500 hover:underline">

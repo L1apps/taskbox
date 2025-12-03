@@ -26,7 +26,7 @@ WORKDIR /app
 
 # Add Metadata Labels
 LABEL maintainer="Level 1 Apps"
-LABEL version="3.9.12"
+LABEL version="3.9.14"
 LABEL description="TaskBox - Standalone Task Manager"
 LABEL com.l1apps.www="Level 1 Apps"
 

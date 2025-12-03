@@ -3,6 +3,30 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [3.9.14] - 2025-10-18
+### Changed
+- **Dependencies:** 
+    - Improved grouping visual: Dependencies now appear indented under their parent task instead of using a "Waiting on" label.
+    - Implemented a depth limit of 5 levels for dependency chains to prevent complexity.
+- **Global Views:** 
+    - Renamed "High Importance" to "Importance" and now includes Medium importance tasks.
+    - Updated Toolbar icons for consistency (Link icon for dependencies, Checkbox for completed).
+    - Removed "Filter" text from List Filter button for cleaner UI.
+- **UI:** Standardized sidebar and toolbar icons.
+
+## [3.9.13] - 2025-10-15
+### Added
+- **Share Permissions:** Granular permissions for shared lists (View Only, Modify, Full Access).
+- **Dependency Grouping:** Automatic grouping of dependent tasks across all views.
+- **Visual Enhancements:** 
+    - Updated Focused List icons to Lightning Bolt for consistency.
+    - Updated High Importance icon in sidebar to Flag.
+    - Renamed "Priority" to "Importance" across the UI.
+
+### Changed
+- **View Reset:** Hide Completed and Sort settings now reset when switching lists.
+- **Tooltips:** Updated Create List tooltip logic.
+
 ## [3.9.12] - 2025-10-10
 ### Added
 - **Debug Mode:** Added a diagnostic mode to help users report issues accurately. Enable by visiting `/debug` or appending `?tooltips=on` to the URL. This displays internal component names in high-contrast tooltips.

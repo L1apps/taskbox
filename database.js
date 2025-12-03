@@ -96,7 +96,7 @@ async function initializeDatabase() {
             });
         }
     }
-
+    
     // MIGRATION: Convert old Folders to Parent Lists
     const hasFoldersTable = await db.schema.hasTable('folders');
     if (hasFoldersTable) {
@@ -104,7 +104,6 @@ async function initializeDatabase() {
         if (folders.length > 0) {
             console.log(`Migrating ${folders.length} folders to lists...`);
             for (const folder of folders) {
-                // Create a new list representing the folder
                 const [newListId] = await db('lists').insert({
                     title: folder.name,
                     description: 'Converted from Folder',
@@ -112,14 +111,11 @@ async function initializeDatabase() {
                     parent_id: null
                 });
                 
-                // Move children of this folder to the new list
-                // Note: We check if 'lists' table has 'folder_id' column before query
                 const hasFolderIdCol = await db.schema.hasColumn('lists', 'folder_id');
                 if (hasFolderIdCol) {
                     await db('lists').where('folder_id', folder.id).update({ parent_id: newListId });
                 }
             }
-            // Clear old folders
             await db('folders').del();
         }
     }
@@ -131,7 +127,15 @@ async function initializeDatabase() {
             table.primary(['list_id', 'user_id']);
             table.integer('list_id').unsigned().references('id').inTable('lists').onDelete('CASCADE');
             table.integer('user_id').unsigned().references('id').inTable('users').onDelete('CASCADE');
+            table.string('permission').defaultTo('FULL'); // VIEW, MODIFY, FULL
         });
+    } else {
+        const hasPermission = await db.schema.hasColumn('list_shares', 'permission');
+        if (!hasPermission) {
+            await db.schema.alterTable('list_shares', (table) => {
+                table.string('permission').defaultTo('FULL');
+            });
+        }
     }
     
     const hasTasksTable = await db.schema.hasTable('tasks');
@@ -166,7 +170,6 @@ async function initializeDatabase() {
         if (!hasCreatedAt) {
             await db.schema.alterTable('tasks', t => t.timestamp('created_at').defaultTo(db.fn.now()));
         }
-        // Normalize importance
         await db('tasks').where('importance', '>', 2).update({ importance: 2 });
     }
     

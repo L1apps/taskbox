@@ -22,6 +22,7 @@ TaskBox provides a clean interface for organizing tasks, lists, and workflows lo
  	<li><strong>Copy/Move Tasks:</strong> Move or copy tasks between lists.</li>
  	<li><strong>Duplicate Prevention:</strong> Paste/import automatically filters duplicates.</li>
  	<li><strong>Multi-User Support:</strong> Secure registration and login system.</li>
+ 	<li><strong>Shared Permissions:</strong> Granular control (View Only, Modify, Full Access).</li>
  	<li><strong>Admin Panel:</strong> User management, logs, maintenance tools.</li>
  	<li><strong>Database Backup &amp; Restore:</strong> Download or upload full SQLite database.</li>
  	<li><strong>Task Management:</strong> Pin tasks, set dependencies, mark importance levels.</li>
@@ -50,9 +51,13 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 <h3>2. Permissions</h3>
 <ul>
  	<li><strong>Owner:</strong> Can move, merge, delete, rename, or share the list.</li>
- 	<li><strong>Shared User:</strong> Can add/edit/complete tasks but cannot change list structure.</li>
- 	<li><strong>Upward Sharing:</strong> Sharing a sublist automatically shares the parent container.</li>
- 	<li><strong>Recursive Sharing:</strong> Sharing a Master List shares all sublists.</li>
+ 	<li><strong>Shared User:</strong> Can interact based on assigned role:
+        <ul>
+            <li><strong>View Only:</strong> Read-only access.</li>
+            <li><strong>Modify:</strong> Add/Edit/Complete tasks. No Deletion.</li>
+            <li><strong>Full Access:</strong> All task actions.</li>
+        </ul>
+    </li>
 </ul>
 <h3>Getting Started</h3>
 <ul>
@@ -62,7 +67,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 </ul>
 <h3>Focused List &amp; Global Views</h3>
 <ul>
- 	<li><strong>Focused List (Target Icon):</strong> A permanent list at the top of the sidebar. Toggle the target icon on any task to add it here. Supports Sorting, Printing, and Exporting.</li>
+ 	<li><strong>Focused List (Lightning Icon):</strong> A permanent list at the top of the sidebar. Toggle the lightning icon on any task to add it here.</li>
  	<li><strong>Global Views (File Cabinet):</strong> View tasks across ALL lists. Filter by All Active, High Importance, Pinned, or Dependencies. Use "Filter Lists" to narrow down the view.</li>
  	<li><strong>Global Search:</strong> Persistent search bar in the header searches all lists.</li>
 </ul>
@@ -70,10 +75,10 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 <ul>
  	<li><strong>Add Task:</strong> Type at bottom of list.</li>
  	<li><strong>Edit:</strong> Click task text.</li>
- 	<li><strong>Complete:</strong> Tasks move down or hide via “eye” toggle.</li>
- 	<li><strong>Importance:</strong> Low → Medium → High.</li>
+ 	<li><strong>Complete:</strong> Tasks move down or hide via the checkbox icon toggle.</li>
+ 	<li><strong>Importance:</strong> Low → Medium → High (Flag Icon).</li>
  	<li><strong>Pin:</strong> Keeps tasks at top.</li>
- 	<li><strong>Dependencies:</strong> Tasks cannot complete until prerequisite is finished.</li>
+ 	<li><strong>Dependencies:</strong> Tasks cannot complete until prerequisite is finished. Automatically grouped in lists. Limited to 5 levels deep.</li>
  	<li><strong>Copy/Move:</strong> Hover → Copy icon.</li>
  	<li><strong>Print:</strong> Generates a clean, checklist-style print view. Works for long lists across multiple pages.</li>
 </ul>
@@ -82,7 +87,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
  	<li><strong>Rename</strong></li>
  	<li><strong>Move:</strong> Valid options only; containers cannot be moved inside lists.</li>
  	<li><strong>Merge:</strong> Combines lists and deletes the source.</li>
- 	<li><strong>Share</strong></li>
+ 	<li><strong>Share:</strong> Assign permission levels to other users.</li>
 </ul>
 <h3>Copy / Paste &amp; Import</h3>
 <ul>
@@ -125,6 +130,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 <ul>
  	<li><strong>Max Depth:</strong> 3 Levels (Master → Sublist → Nested Sublist).</li>
  	<li><strong>Container Rule:</strong> Lists with sublists cannot hold tasks.</li>
+ 	<li><strong>Dependency Depth:</strong> Max 5 levels.</li>
  	<li><strong>Single Session:</strong> SQLite may lock under heavy parallel writes.</li>
  	<li><strong>No Offline Mode:</strong> Requires network to container.</li>
 </ul>
@@ -202,6 +208,22 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 <h2>Version History</h2>
 [expand title="<strong><em>Click to view full TaskBox changelog</em></strong>"]
 <ul>
+    <li><strong>3.9.14 – 2025-10-18</strong>
+<ul>
+ 	<li>Improved Dependency grouping logic (Indented View).</li>
+ 	<li>Added dependency depth limit (5 levels).</li>
+ 	<li>Updated Toolbar icons and consistency.</li>
+ 	<li>Renamed High Importance to Importance (Medium+High).</li>
+</ul>
+</li>
+    <li><strong>3.9.13 – 2025-10-15</strong>
+<ul>
+ 	<li>Added granular Share Permissions (View, Modify, Full).</li>
+ 	<li>Enhanced dependency grouping logic.</li>
+ 	<li>Updated UI icons (Lightning Bolt for Focus, Flag for Importance).</li>
+    <li>Added state resets for view filters on list change.</li>
+</ul>
+</li>
     <li><strong>3.9.12 – 2025-10-10</strong>
 <ul>
  	<li>Fixed CSV export quoting issues.</li>

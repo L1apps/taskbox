@@ -58,6 +58,23 @@ const adminOnly = (req, res, next) => {
     return res.status(403).json({ message: 'Administrator access required.' });
 };
 
+const checkDependencyDepth = async (db, targetId) => {
+    let depth = 1; 
+    let currentId = targetId;
+    
+    // Check the depth of the chain we are attaching to
+    while (currentId) {
+        if (depth >= 5) return false; 
+        
+        const [task] = await db('tasks').where('id', currentId).select('dependsOn');
+        if (!task || !task.dependsOn) break;
+        
+        currentId = task.dependsOn;
+        depth++;
+    }
+    return true;
+};
+
 
 export function createApiRouter(db) {
   const router = express.Router();
@@ -249,16 +266,22 @@ export function createApiRouter(db) {
   // --- List Routes (Nested) ---
   router.get('/lists', authenticate, async (req, res) => {
       const ownedLists = await db('lists').where('owner_id', req.user.id);
-      const sharedListIds = await db('list_shares').where('user_id', req.user.id).pluck('list_id');
+      
+      // Get shared lists with permissions
+      const shares = await db('list_shares').where('user_id', req.user.id);
+      const sharedListIds = shares.map(s => s.list_id);
       const sharedLists = await db('lists').whereIn('id', sharedListIds);
       
+      const permissionsMap = new Map();
+      shares.forEach(s => permissionsMap.set(s.list_id, s.permission));
+
       const allUserLists = [...ownedLists, ...sharedLists];
       const uniqueLists = Array.from(new Map(allUserLists.map(list => [list.id, list])).values());
       const allListIds = uniqueLists.map(l => l.id);
 
       if (allListIds.length === 0) return res.json([]);
 
-      const [tasks, shares, users] = await Promise.all([
+      const [tasks, allShares, users] = await Promise.all([
           db('tasks').whereIn('list_id', allListIds),
           db('list_shares').whereIn('list_id', allListIds),
           db('users').select('id', 'username')
@@ -267,15 +290,25 @@ export function createApiRouter(db) {
       const usersById = users.reduce((acc, u) => ({...acc, [u.id]: u }), {});
       
       const listsWithDetails = uniqueLists.map(list => {
-          const listShares = shares.filter(s => s.list_id === list.id);
+          const listShares = allShares.filter(s => s.list_id === list.id);
           const rawTasks = tasks.filter(task => task.list_id === list.id).sort((a,b) => a.id - b.id);
+          
+          let currentUserPermission = 'OWNER';
+          if (list.owner_id !== req.user.id) {
+              currentUserPermission = permissionsMap.get(list.id) || 'VIEW';
+          }
+
           return {
               ...list,
               pinned: Boolean(list.pinned),
               ownerId: list.owner_id,
               parentId: list.parent_id,
               tasks: rawTasks.map(normalizeTask),
-              sharedWith: listShares.map(s => usersById[s.user_id]).filter(Boolean)
+              sharedWith: listShares.map(s => ({
+                  ...usersById[s.user_id],
+                  permission: s.permission
+              })).filter(u => u.username),
+              currentUserPermission
           };
       });
       res.json(listsWithDetails);
@@ -306,7 +339,7 @@ export function createApiRouter(db) {
 
     const [insertedId] = await db('lists').insert({ title, description, owner_id: req.user.id, parent_id: validParentId, pinned: false });
     const [newList] = await db('lists').where({ id: insertedId });
-    res.status(201).json({ ...newList, pinned: false, ownerId: newList.owner_id, parentId: newList.parent_id, tasks: [], sharedWith: [] });
+    res.status(201).json({ ...newList, pinned: false, ownerId: newList.owner_id, parentId: newList.parent_id, tasks: [], sharedWith: [], currentUserPermission: 'OWNER' });
   });
 
   const canAccessList = async (req, res, next) => {
@@ -314,16 +347,24 @@ export function createApiRouter(db) {
       const effectiveListId = listId || id;
       const [list] = await db('lists').where('id', effectiveListId);
       if (!list) return res.status(404).json({ message: 'List not found' });
+      
       const isOwner = list.owner_id === req.user.id;
-      const isShared = await db('list_shares').where({ list_id: effectiveListId, user_id: req.user.id }).first();
-      if (!isOwner && !isShared) return res.status(403).json({ message: 'Access denied' });
+      let permission = 'OWNER';
+      
+      if (!isOwner) {
+          const share = await db('list_shares').where({ list_id: effectiveListId, user_id: req.user.id }).first();
+          if (!share) return res.status(403).json({ message: 'Access denied' });
+          permission = share.permission;
+      }
+      
       req.list = list;
       req.isOwner = isOwner;
+      req.permission = permission;
       next();
   };
 
   router.put('/lists/:id', authenticate, canAccessList, async (req, res) => {
-      // PERMISSION: Only owner can modify structure (Move list)
+      // PERMISSION: Only owner can modify structure (Move list) or rename
       if (!req.isOwner) {
           return res.status(403).json({ message: 'Only owner can modify list settings.' });
       }
@@ -371,7 +412,7 @@ export function createApiRouter(db) {
           if (parentId) {
               const currentShares = await db('list_shares').where({ list_id: listId });
               for (const share of currentShares) {
-                  await db('list_shares').insert({ list_id: parentId, user_id: share.user_id }).onConflict().ignore();
+                  await db('list_shares').insert({ list_id: parentId, user_id: share.user_id, permission: share.permission }).onConflict().ignore();
               }
           }
           
@@ -435,12 +476,18 @@ export function createApiRouter(db) {
   });
 
   router.delete('/lists/:listId/tasks/completed', authenticate, canAccessList, async (req, res) => {
+      if (req.permission === 'VIEW') return res.status(403).json({ message: "Read only access." });
+      // Full Access/Owner can delete tasks. Modify access cannot delete tasks.
+      if (req.permission === 'MODIFY' && !req.isOwner) return res.status(403).json({ message: "Modify access cannot delete tasks." });
+      
       await db('tasks').where({ list_id: req.params.listId, completed: true }).del();
       res.status(204).send();
   });
   
-  // NEW Endpoint: Bulk status update
+  // Bulk status update
   router.put('/lists/:listId/tasks/bulk-status', authenticate, canAccessList, async (req, res) => {
+      if (req.permission === 'VIEW') return res.status(403).json({ message: "Read only access." });
+
       const { completed } = req.body;
       if (typeof completed !== 'boolean') return res.status(400).json({ message: "Completed status required." });
       
@@ -457,14 +504,14 @@ export function createApiRouter(db) {
 
   router.post('/lists/:id/shares', authenticate, canAccessList, async (req, res) => {
       if (!req.isOwner) return res.status(403).json({ message: 'Only owner can share.' });
-      const { userId } = req.body;
+      const { userId, permission = 'FULL' } = req.body;
       
       if (req.list.parent_id) {
-          await db('list_shares').insert({ list_id: req.list.parent_id, user_id: userId }).onConflict().ignore();
+          await db('list_shares').insert({ list_id: req.list.parent_id, user_id: userId, permission }).onConflict().ignore();
       }
 
       const shareRecursively = async (listId) => {
-          await db('list_shares').insert({ list_id: listId, user_id: userId }).onConflict().ignore();
+          await db('list_shares').insert({ list_id: listId, user_id: userId, permission }).onConflict().ignore();
           const children = await db('lists').where({ parent_id: listId });
           for (const child of children) {
               await shareRecursively(child.id);
@@ -513,6 +560,8 @@ export function createApiRouter(db) {
   });
 
   router.post('/lists/:listId/tasks', authenticate, canAccessList, async (req, res) => {
+      if (req.permission === 'VIEW') return res.status(403).json({ message: "Read only access." });
+
       const children = await db('lists').where({ parent_id: req.params.listId }).first();
       if (children) return res.status(409).json({ message: "This list contains sublists. It cannot contain tasks." });
 
@@ -527,6 +576,8 @@ export function createApiRouter(db) {
   });
   
   router.post('/lists/:listId/tasks/bulk', authenticate, canAccessList, async (req, res) => {
+      if (req.permission === 'VIEW') return res.status(403).json({ message: "Read only access." });
+
       const children = await db('lists').where({ parent_id: req.params.listId }).first();
       if (children) return res.status(409).json({ message: "List contains sublists. Cannot import tasks." });
 
@@ -553,16 +604,33 @@ export function createApiRouter(db) {
       const [task] = await db('tasks').where('id', taskId);
       if(!task) return res.status(404).json({message: 'Task not found'});
       
+      // Source Check
       const [sourceList] = await db('lists').where('id', task.list_id);
-      const isSourceOwner = sourceList.owner_id === req.user.id;
-      const isSourceShared = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
-      if (!isSourceOwner && !isSourceShared) return res.status(403).json({ message: 'Source access denied' });
+      let sourcePermission = 'OWNER';
+      if (sourceList.owner_id !== req.user.id) {
+          const share = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
+          if (!share) return res.status(403).json({ message: 'Source access denied' });
+          sourcePermission = share.permission;
+      }
+      
+      // If moving, need delete permission on source
+      if (move) {
+          if (sourcePermission === 'VIEW') return res.status(403).json({ message: "Cannot move from View Only list." });
+          if (sourcePermission === 'MODIFY' && sourceList.owner_id !== req.user.id) return res.status(403).json({ message: "Modify access cannot delete tasks (move)." });
+      }
 
+      // Target Check
       const [targetList] = await db('lists').where('id', targetListId);
       if(!targetList) return res.status(404).json({message: 'Target list not found'});
-      const isTargetOwner = targetList.owner_id === req.user.id;
-      const isTargetShared = await db('list_shares').where({ list_id: targetListId, user_id: req.user.id }).first();
-      if (!isTargetOwner && !isTargetShared) return res.status(403).json({ message: 'Target access denied' });
+      
+      let targetPermission = 'OWNER';
+      if (targetList.owner_id !== req.user.id) {
+          const share = await db('list_shares').where({ list_id: targetListId, user_id: req.user.id }).first();
+          if (!share) return res.status(403).json({ message: 'Target access denied' });
+          targetPermission = share.permission;
+      }
+      
+      if (targetPermission === 'VIEW') return res.status(403).json({ message: "Cannot copy/move to View Only list." });
 
       const targetChildren = await db('lists').where({ parent_id: targetListId }).first();
       if (targetChildren) return res.status(409).json({ message: "Target list contains sublists. Cannot add tasks." });
@@ -591,14 +659,25 @@ export function createApiRouter(db) {
     if(!task) return res.status(404).json({message: 'Task not found'});
     
     const [list] = await db('lists').where('id', task.list_id);
-    const isOwner = list.owner_id === req.user.id;
-    const isShared = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
-    if (!isOwner && !isShared) return res.status(403).json({ message: 'Access denied' });
+    let permission = 'OWNER';
+    if (list.owner_id !== req.user.id) {
+        const share = await db('list_shares').where({ list_id: task.list_id, user_id: req.user.id }).first();
+        if (!share) return res.status(403).json({ message: 'Access denied' });
+        permission = share.permission;
+    }
+
+    if (permission === 'VIEW') return res.status(403).json({ message: "Read only access." });
 
     if (dependsOn !== undefined && dependsOn !== null) {
         if (Number(dependsOn) === Number(taskId)) return res.status(409).json({ message: "Self-dependency not allowed." });
         const [depTask] = await db('tasks').where('id', dependsOn);
         if (!depTask || depTask.list_id !== task.list_id) return res.status(409).json({ message: "Invalid dependency." });
+        
+        // Check depth limit
+        const withinLimit = await checkDependencyDepth(db, Number(dependsOn));
+        if (!withinLimit) {
+            return res.status(400).json({ message: "Dependency limit is 5 levels deep." });
+        }
     }
     
     // Focused Logic
@@ -607,8 +686,6 @@ export function createApiRouter(db) {
             return res.status(400).json({ message: "Cannot focus a completed task." });
         }
         
-        // Count currently focused tasks for this user (Accessing owned lists or shared lists)
-        // We find all lists the user has access to, then count focused tasks in those lists.
         const ownedLists = db('lists').where('owner_id', req.user.id).select('id');
         const sharedLists = db('list_shares').where('user_id', req.user.id).select('list_id as id');
         
@@ -650,9 +727,15 @@ export function createApiRouter(db) {
       if(!task) return res.status(404).json({message: 'Not found'});
       
       const [list] = await db('lists').where('id', task.list_id);
-      const isOwner = list.owner_id === req.user.id;
-      const isShared = await db('list_shares').where({ list_id: list.id, user_id: req.user.id }).first();
-      if (!isOwner && !isShared) return res.status(403).json({ message: 'Access denied' });
+      let permission = 'OWNER';
+      if (list.owner_id !== req.user.id) {
+          const share = await db('list_shares').where({ list_id: list.id, user_id: req.user.id }).first();
+          if (!share) return res.status(403).json({ message: 'Access denied' });
+          permission = share.permission;
+      }
+      
+      if (permission === 'VIEW') return res.status(403).json({ message: "Read only access." });
+      if (permission === 'MODIFY' && !list.owner_id) return res.status(403).json({ message: "Modify access cannot delete tasks." });
 
       await db('tasks').where('id', req.params.taskId).del();
       res.status(204).send();

@@ -16,7 +16,10 @@ TaskBox uses a strict **3-level hierarchy** to keep organization clean while all
 
 ### 2. Permissions
 *   **Owner:** The user who created the list. Only the owner can Move, Merge, Delete, or Share the list.
-*   **Shared User:** Can View, Add, Edit, and Complete tasks within the list, but cannot alter the list structure or share it with others.
+*   **Shared User:** Can interact with the list based on assigned permission level:
+    *   **View Only:** Can only view tasks and list details. No editing allowed.
+    *   **Modify:** Can Add, Edit, and Complete tasks. Cannot Delete tasks.
+    *   **Full Access:** Can do everything including deleting tasks. (Cannot manage List settings).
 
 ---
 
@@ -31,8 +34,8 @@ TaskBox uses a strict **3-level hierarchy** to keep organization clean while all
 *   **Local Search:** Located in the task toolbar, filters tasks within the **current** view (works in specific lists AND Global Views).
 
 ### 🎯 Focused List
-The **Focused** list is a permanent system list located at the top of your sidebar (Blue List Icon). It is designed for your immediate priorities.
-*   **Add to Focused:** Click the target/crosshair icon (turns blue when active) on any task to add it to the Focused list.
+The **Focused** list is a permanent system list located at the top of the sidebar (Lightning Bolt Icon). It is designed for your immediate priorities.
+*   **Add to Focused:** Click the Lightning Bolt icon (turns blue when active) on any task to add it to the Focused list.
 *   **Features:**
     *   **Sort & Search:** Sort focused items by due date or importance, or search locally within the list.
     *   **Export:** Export your focused list to CSV for reporting.
@@ -44,9 +47,9 @@ The **Focused** list is a permanent system list located at the top of your sideb
 
 ### 📂 Global Views (File Cabinet)
 Located in the sidebar header, the file cabinet icon allows you to see tasks from **all lists** in a single view.
-*   **Filter Lists:** Use the "Filter Lists" dropdown to show tasks from specific lists only while staying in the Global View.
+*   **Filter Lists:** Use the list filter icon to show tasks from specific lists only while staying in the Global View.
 *   **Show all Tasks:** Aggregates every active task you have access to.
-*   **Show High Importance:** Filters for tasks marked with Red flags.
+*   **Importance:** Filters for tasks marked with Medium (Yellow) or High (Red) importance.
 *   **Show Pinned Tasks:** Filters for tasks you have pinned.
 *   **Show Dependent Tasks:** Filters for tasks that are waiting on another task. Shows dependency name inline.
 *   **Note:** You cannot Import files or Paste items when in a Global View, as there is no specific list to add them to.
@@ -54,8 +57,8 @@ Located in the sidebar header, the file cabinet icon allows you to see tasks fro
 ### 📝 Task Management
 *   **Add Task:** Type in the input field at the bottom of a list and press Enter.
 *   **Edit:** Click any task text to edit it inline.
-*   **Complete:** Click the checkbox. Completed tasks move to the bottom or are hidden via the "Eye" icon toggle.
-*   **Priority:** Click the flag icon to cycle through Low (Gray), Medium (Yellow), and High (Red) importance.
+*   **Complete:** Click the checkbox. Completed tasks move to the bottom or are hidden via the "Checkbox" icon toggle.
+*   **Importance:** Click the flag icon to cycle through Low (Gray), Medium (Yellow), and High (Red) importance.
 *   **Pin:** Click the pin icon to stick the task to the top of the list, regardless of sorting.
 *   **Dependencies:** Use the dropdown on the right of a task to select a prerequisite. You cannot complete a task until its dependency is finished.
 *   **Copy/Move:** Hover over a task description and click the "Copy" icon (two sheets of paper) to copy or move the task to another list.
@@ -66,7 +69,7 @@ Hover over the list name or look at the sidebar toolbar to access actions:
 *   **Rename:** Change the list title.
 *   **Move:** Move a list to the Top Level or into another Master List. (Validates against hierarchy rules).
 *   **Merge:** Combine two lists. Select a target, and all tasks from the current list will be moved there. The old list is deleted.
-*   **Share:** Grant access to other users.
+*   **Share:** Grant access to other users with View Only, Modify, or Full Access permissions.
     *   *Upward Sharing:* Sharing a sublist automatically shares the parent container so the user can navigate to it.
     *   *Recursive Sharing:* Sharing a Master List automatically grants access to all its sublists.
 
@@ -108,5 +111,6 @@ If asked by support to provide UI details, you can enable **Debug Mode**.
 
 1.  **Max Depth:** You can nest lists up to 3 levels deep.
 2.  **Container Rule:** If a list has sublists, you cannot add tasks to it directly. You must add them to one of the sublists.
-3.  **Single Session:** While multiple users are supported, the database is SQLite (file-based). Extremely high write concurrency may experience locking.
-4.  **Offline:** As a self-hosted web app, it requires network connectivity to the Docker container.
+3.  **Dependency Depth:** Tasks can have dependencies nested up to 5 levels deep.
+4.  **Single Session:** While multiple users are supported, the database is SQLite (file-based). Extremely high write concurrency may experience locking.
+5.  **Offline:** As a self-hosted web app, it requires network connectivity to the Docker container.

@@ -6,6 +6,10 @@ export interface User {
   sessionTimeout?: string;
 }
 
+export interface SharedUser extends User {
+    permission?: 'VIEW' | 'MODIFY' | 'FULL';
+}
+
 export interface Task {
   id: number;
   description: string;
@@ -31,7 +35,8 @@ export interface TaskList {
 
 export interface TaskListWithUsers extends TaskList {
   ownerId: number;
-  sharedWith: User[];
+  sharedWith: SharedUser[];
+  currentUserPermission?: 'OWNER' | 'VIEW' | 'MODIFY' | 'FULL';
 }
 
 export type Theme = 'light' | 'dark' | 'orange';

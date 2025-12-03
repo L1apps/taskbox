@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.9.12
+**Version:** 3.9.14
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -12,7 +12,7 @@
 
 ## Overview
 
-**TaskBox** is a standalone, feature-rich task management application designed for individuals and teams. It supports nested lists (sublists), multi-user collaboration, list sharing, admin controls, and extensive task organization features like dependencies and pinning, all in a secure, self-hosted Docker container.
+**TaskBox** is a standalone, feature-rich task management application designed for individuals and teams. It supports nested lists (sublists), multi-user collaboration, list sharing with granular permissions (View, Modify, Full), admin controls, and extensive task organization features like dependencies and pinning, all in a secure, self-hosted Docker container.
 
 ---
 
@@ -91,6 +91,7 @@ docker run -d \
 *   **Persistent View:** Your sort order and view filters are saved automatically.
 *   **Merge Lists:** Consolidate lists by merging them together.
 *   **Multi-User Support:** Secure user registration and login system.
+*   **Shared Permissions:** Share lists with specific access levels: View Only, Modify, or Full Access.
 *   **Admin Panel:** User management, security logs, and database maintenance.
 *   **Database Backup/Restore:** Download full backups or restore DB via file upload (Admin only).
 *   **Import/Export:** Support for CSV and Text files. (Import disabled in Global Views).
@@ -126,6 +127,8 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
+*   **v3.9.14:** Improved Dependency grouping logic, UI consistency in Toolbars, and Importance sorting updates.
+*   **v3.9.13:** Added granular sharing permissions (View/Modify/Full). Updated dependency grouping logic. UI updates for Focus/Importance icons.
 *   **v3.9.12:** Fixed CSV export formatting (double-quotes), restricted List Sharing permissions, added Debug Mode for diagnostics.
 *   **v3.9.11:** UI Enhancements (Icons), Global View Filtering, Dependency Grouping, Multi-page printing fix.
 *   **v3.9.10:** Fixed multi-page printing overflow. Disabled Import in Global Views.

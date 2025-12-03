@@ -77,7 +77,13 @@ const ModalManager: React.FC = () => {
 
     switch (type) {
         case 'ADD_LIST':
-            return <AddListModal onClose={closeModal} onAddList={(title) => { addList(title, props?.parentId); closeModal(); }} theme={theme} />;
+            return <AddListModal 
+                onClose={closeModal} 
+                onAddList={(title, parentId) => { addList(title, parentId); closeModal(); }} 
+                theme={theme}
+                activeList={activeList}
+                allLists={lists}
+            />;
         case 'MOVE_LIST':
             return <MoveListModal onClose={closeModal} lists={lists} list={props.list} onMove={async (id, parent) => { await moveList(id, parent); closeModal(); }} theme={theme} />;
         case 'MERGE_LIST':

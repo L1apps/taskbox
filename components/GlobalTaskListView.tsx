@@ -415,11 +415,9 @@ const GlobalTaskListView: React.FC = () => {
         return "Hide only Dependency Groups"; 
     };
 
-    // Safe Check: Disable drag if searching to avoid re-indexing filtered results incorrectly
-    // Also ensuring no lists are excluded for global sort to keep index integrity relative to all possible items
-    // AND Only allow for Focused and Dependent views (as per user request)
-    const canUseCustomSort = specialView === 'focused' || specialView === 'dependencies';
-    const isDragEnabled = canUseCustomSort && isCustomSortEnabled && !localSearch && excludedListIds.size === 0;
+    // Global views generally don't support custom sorting as they are aggregates.
+    const canUseCustomSort = false;
+    const isDragEnabled = false;
 
     return (
         <div className="p-4 sm:p-6 flex flex-col h-full relative print:block print:h-auto print:overflow-visible">

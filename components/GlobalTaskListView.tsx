@@ -151,20 +151,32 @@ const GlobalTaskListView: React.FC = () => {
         return allTasks;
     }, [lists, specialView, excludedListIds]);
 
+    // Create a comprehensive map of all available tasks for dependency lookup
+    // This allows us to pull in dependencies that might not match the current view filter (e.g. unpinned dependency of a pinned task)
+    const allTasksMap = useMemo(() => {
+        const map = new Map<number, { task: Task; listTitle: string }>();
+        lists.forEach(list => {
+            if (excludedListIds.has(list.id)) return;
+            list.tasks?.forEach(task => {
+                map.set(task.id, { task, listTitle: list.title });
+            });
+        });
+        return map;
+    }, [lists, excludedListIds]);
+
     // Cycle dependency mode: 0 -> 1 -> 2 -> 0
     const cycleDependencyMode = () => {
         setDependencyMode((prev) => (prev + 1) % 3);
     };
 
     // Helper to group tasks so that dependents pull their dependencies
-    const groupTasksByDependency = (tasks: { task: Task; listTitle: string }[]) => {
+    const groupTasksByDependency = (
+        tasks: { task: Task; listTitle: string }[], 
+        lookupMap: Map<number, { task: Task; listTitle: string }>
+    ) => {
         const processed = new Set<number>();
         const result: { task: Task; listTitle: string; depth: number }[] = [];
         
-        // Lookup for fast access within the current filtered set
-        const taskMap = new Map<number, { task: Task; listTitle: string }>();
-        tasks.forEach(item => taskMap.set(item.task.id, item));
-
         for (const item of tasks) {
             if (processed.has(item.task.id)) continue;
 
@@ -178,9 +190,9 @@ const GlobalTaskListView: React.FC = () => {
             while(current.dependsOn && depth < 5) {
                 const depId = current.dependsOn;
                 
-                // If dependency exists in the current view and hasn't been shown yet, pull it here
-                if (taskMap.has(depId) && !processed.has(depId)) {
-                    const depItem = taskMap.get(depId)!;
+                // If dependency exists in the global pool (even if filtered out of view), pull it here
+                if (lookupMap.has(depId) && !processed.has(depId)) {
+                    const depItem = lookupMap.get(depId)!;
                     depth++;
                     result.push({ ...depItem, depth });
                     processed.add(depId);
@@ -323,7 +335,8 @@ const GlobalTaskListView: React.FC = () => {
         if (dependencyMode === 0 || isCustomSortEnabled) return sortedList.map(item => ({ ...item, depth: 0 }));
 
         // Apply Grouping for Mode 1 and 2 (Only if custom sort is OFF)
-        let grouped = groupTasksByDependency(sortedList);
+        // Pass allTasksMap to allow pulling in dependencies that were filtered out
+        let grouped = groupTasksByDependency(sortedList, allTasksMap);
 
         if (dependencyMode === 2) {
              const dependencyIds = new Set(sortedList.filter(i => i.task.dependsOn).map(i => i.task.dependsOn));
@@ -337,7 +350,7 @@ const GlobalTaskListView: React.FC = () => {
 
         return grouped;
 
-    }, [rawTasks, showCompleted, localSearch, sort, dependencyMode, isCustomSortEnabled]);
+    }, [rawTasks, showCompleted, localSearch, sort, dependencyMode, isCustomSortEnabled, allTasksMap]);
 
     const isOrange = theme === 'orange';
     const highlightColor = isOrange ? 'text-orange-400' : 'text-blue-600 dark:text-blue-400';

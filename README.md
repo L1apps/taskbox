@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.10.6
+**Version:** 3.11.3
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -12,7 +12,7 @@
 
 ## Overview
 
-**TaskBox** is a standalone, feature-rich task management application designed for individuals and teams. It supports nested lists (sublists), multi-user collaboration, list sharing with granular permissions (View, Modify, Full), admin controls, and extensive task organization features like dependencies and pinning, all in a secure, self-hosted Docker container.
+**TaskBox** is a standalone, feature-rich task management application designed for individuals and teams. It supports nested lists (sublists), multi-user collaboration, list sharing with granular permissions (View, Modify, Full), admin controls, and extensive task organization features like parent/child relationships and pinning, all in a secure, self-hosted Docker container.
 
 ---
 
@@ -80,6 +80,7 @@ docker run -d \
 
 ## Features
 
+*   **Task Relationships:** Link tasks as Parent/Child to create sub-tasks. Parent tasks cannot be completed until all children are done.
 *   **Remember Last List:** Automatically reloads the last list you were viewing.
 *   **Global View Persistence:** By default, all lists and Global Views remember your sort/filter settings. This can be toggled globally in User Settings or individually per list via the toolbar.
 *   **Custom Task Ordering:** Manual Up/Down sorting toggled per list.
@@ -131,6 +132,10 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
+*   **v3.11.3:** Added "Reset Task Relationships" repair tool to Admin panel.
+*   **v3.11.2:** Refined Task Relationship UI/Sorting.
+*   **v3.11.1:** Refined Parent/Child task logic, tooltips, and family context in Global Views.
+*   **v3.11.0:** Introduced Sub-task Support and replaced Dependency logic with Parent/Child relationships.
 *   **v3.10.6:** Sidebar Accordion Mode, Global View Persistence Settings, Admin Take Ownership override.
 *   **v3.10.5:** Added "All Due Tasks" view, Stats Export, and refined UI for Task Wrapping and Admin tools.
 *   **v3.10.2:** Fixed Docker networking IP binding issue (listening on 0.0.0.0).

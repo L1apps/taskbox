@@ -52,7 +52,7 @@ Located in the sidebar header, the file cabinet icon allows you to see tasks fro
 *   **Importance:** Filters for tasks marked with Medium (Yellow) or High (Red) importance.
 *   **Show Pinned Tasks:** Filters for tasks you have pinned.
 *   **All Due Tasks:** Shows all tasks that have a Due Date set, regardless of list.
-*   **Show Dependent Tasks:** Filters for tasks that are waiting on another task. Shows dependency name inline.
+*   **Show Dependent Tasks:** Filters for tasks that have relationships (Parent/Child).
 *   **Note:** You cannot Import files or Paste items when in a Global View, as there is no specific list to add them to.
 
 ### 📝 Task Management
@@ -62,7 +62,7 @@ Located in the sidebar header, the file cabinet icon allows you to see tasks fro
 *   **Custom Order:** Toggle the "Box List" icon to enable manual sorting. Use Up/Down arrows to reorder tasks exactly as you wish. (Note: Custom Sort is disabled in most Global Views).
 *   **Importance:** Click the flag icon to cycle through Low (Gray), Medium (Yellow), and High (Red) importance.
 *   **Pin:** Click the pin icon to stick the task to the top of the list, regardless of sorting.
-*   **Dependencies:** Use the dropdown on the right of a task to select a prerequisite. You cannot complete a task until its dependency is finished.
+*   **Task Relationships:** Use the dropdown on the right of a task to select a Parent Task. A Parent Task becomes a container for sub-tasks and cannot be completed until all its children are finished.
 *   **Copy/Move:** Hover over a task description and click the "Copy" icon (two sheets of paper) to copy or move the task to another list.
 *   **Print:** Click the printer icon in the toolbar. This generates a minimalist checklist view suitable for physical printing. It hides all UI chrome and ensures content flows across multiple pages correctly.
 
@@ -104,6 +104,7 @@ Accessible only to the Admin user via the shield icon in the header.
     *   *Prune:* Deletes orphaned data.
     *   *Purge All:* Wipes all lists/tasks (Emergency use only).
     *   *Reset Defaults:* Wipes data and restores the demo "Groceries" list.
+    *   *Reset Task Relationships:* Flattens the entire task hierarchy (removes parent/child links) to fix nesting or cross-linking errors.
 
 ### 👤 User Settings
 Accessible via the user icon in the header.

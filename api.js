@@ -354,7 +354,9 @@ export function createApiRouter(db) {
                     createdAt: t.created_at, // Map DB snake_case to frontend camelCase
                     completed: !!t.completed, 
                     pinned: !!t.pinned, 
-                    focused: !!t.focused 
+                    focused: !!t.focused,
+                    parentTaskId: t.parent_task_id, // Map new column
+                    isParentSelectable: !!t.is_parent_selectable // Map new column
                 })),
                 sharedWith: shares,
                 currentUserPermission
@@ -544,7 +546,8 @@ export function createApiRouter(db) {
             description: description.substring(0, 102),
             list_id: listId,
             completed: false,
-            importance: 0
+            importance: 0,
+            is_parent_selectable: true // Default Active
         });
         // Update sort order to be ID
         await db('tasks').where({ id }).update({ sort_order: id, global_sort_order: id });
@@ -566,7 +569,8 @@ export function createApiRouter(db) {
                         completed: t.completed,
                         importance: t.importance || 0,
                         dueDate: t.dueDate,
-                        created_at: t.createdAt
+                        created_at: t.createdAt,
+                        is_parent_selectable: true
                     });
                     await trx('tasks').where({ id }).update({ sort_order: id, global_sort_order: id });
                 }
@@ -640,7 +644,12 @@ export function createApiRouter(db) {
         if (changes.importance !== undefined) updates.importance = changes.importance;
         if (changes.dueDate !== undefined) updates.dueDate = changes.dueDate;
         if (changes.pinned !== undefined) updates.pinned = changes.pinned;
+        // Old field support (ignored or cleared)
         if (changes.dependsOn !== undefined) updates.dependsOn = changes.dependsOn;
+        // New field support
+        if (changes.parentTaskId !== undefined) updates.parent_task_id = changes.parentTaskId;
+        if (changes.isParentSelectable !== undefined) updates.is_parent_selectable = changes.isParentSelectable;
+        
         if (changes.focused !== undefined) {
             if (changes.focused) {
                 updates.focused = true;
@@ -665,7 +674,8 @@ export function createApiRouter(db) {
             importance: task.importance,
             dueDate: task.dueDate,
             list_id: targetListId,
-            sort_order: 0
+            sort_order: 0,
+            is_parent_selectable: true
         });
         
         if (move) {
@@ -778,6 +788,14 @@ export function createApiRouter(db) {
                     .update({ parent_id: null });
                 logActivity(db, 'WARN', `Admin ran Hierarchy Repair. ${orphaned} lists moved to Top Level.`);
                 res.json({ message: `Fixed hierarchy. ${orphaned} invisible lists moved to Top Level.` });
+            } else if (action === 'repair_relationships') {
+                // Clear all parent/child links globally
+                const updated = await db('tasks').update({ 
+                    parent_task_id: null,
+                    is_parent_selectable: true 
+                });
+                logActivity(db, 'WARN', `Admin ran Relationship Repair. ${updated} tasks reset to flat structure.`);
+                res.json({ message: `All task relationships cleared. ${updated} tasks reset.` });
             } else {
                 res.status(400).json({ message: 'Unknown action' });
             }

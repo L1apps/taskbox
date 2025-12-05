@@ -3,6 +3,34 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [3.11.3] - 2025-11-08
+### Added
+- **Admin Tool:** Added "Reset Task Relationships" maintenance tool. This feature fixes any task hierarchy corruption (like grandchildren or cross-linking) by resetting all tasks to a flat structure (no parents, no children).
+
+## [3.11.2] - 2025-11-06
+### Changed
+- **Task Relationships:** Added explicit Active/Inactive status to the Task Relationship dropdown. 
+    - **Active (Default):** Task can be selected as a parent.
+    - **Inactive:** Task cannot be a parent (hidden from dropdowns).
+    - **Select Parent:** Makes the task a child of another task.
+- **UI Updates:** Renamed "Parent Task" header to "TASK RELATIONSHIP" and made it clickable for sorting tasks by relationship status (Active/Child/Inactive).
+- **Sorting:** Added Relationship sorting logic to sort tasks by their role (Parent vs Child vs Inactive).
+
+## [3.11.1] - 2025-11-06
+### Changed
+- **UI Refinement:** Renamed "Dependencies" dropdown to "Select Task Relationship" for clarity.
+- **Global Views:** "Grouped" mode in Global Views now includes "Family Context", showing related parent/child tasks even if they don't match the specific filter (e.g., showing a parent task in "Important" view if its child is Important, to preserve context).
+- **Tooltips:** Updated various tooltips to accurately reflect Parent/Child task behavior and checkbox locking rules.
+
+## [3.11.0] - 2025-11-05
+### Added
+- **Sub-task Support:** Implemented "One Parent, Multiple Children" dependency logic. Tasks can now link to a "Parent Task" within the same list.
+- **Improved Grouping:** "Group by Dependency" is now "Group by Parent Task", supporting infinite depth (limited only by UI) but visually cleaner. Multiple tasks can now nest under a single parent.
+
+### Changed
+- **Dependencies:** Replaced "Depends On" logic with "Parent Task" logic. This allows a task to be a parent to multiple sub-tasks, solving the limitation of single dependencies.
+- **Database:** Added `parent_task_id` column to tasks table. Existing dependencies are preserved in the DB but the UI now uses the new sub-task relationship model.
+
 ## [3.10.6] - 2025-11-02
 ### Added
 - **Sidebar Accordion Mode:** New behavior to automatically collapse other lists when opening a new one. Keeps the sidebar clean.

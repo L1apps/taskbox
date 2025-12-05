@@ -29,7 +29,7 @@ TaskBox provides a clean interface for organizing tasks, lists, and workflows lo
  	<li><strong>Shared Permissions:</strong> Granular control (View Only, Modify, Full Access) + Ownership Transfer.</li>
  	<li><strong>Admin Panel:</strong> User management, logs, maintenance tools.</li>
  	<li><strong>Database Backup &amp; Restore:</strong> Download or upload full SQLite database.</li>
- 	<li><strong>Task Management:</strong> Pin tasks, set dependencies, mark importance levels.</li>
+ 	<li><strong>Task Management:</strong> Pin tasks, set parent/child relationships, mark importance levels.</li>
  	<li><strong>Import/Export:</strong> CSV/text import &amp; export.</li>
  	<li><strong>Themes:</strong> Light, Dark, High-Contrast Orange.</li>
 </ul>
@@ -83,7 +83,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
  	<li><strong>Custom Order:</strong> Toggle the "Box List" icon to enable Up/Down arrows for manual sorting.</li>
  	<li><strong>Importance:</strong> Low → Medium → High (Flag Icon).</li>
  	<li><strong>Pin:</strong> Keeps tasks at top.</li>
- 	<li><strong>Dependencies:</strong> Tasks cannot complete until prerequisite is finished. Automatically grouped in lists. Limited to 5 levels deep.</li>
+ 	<li><strong>Task Relationships:</strong> Assign a Parent Task via the dropdown. The Parent cannot be completed until all its children are done.</li>
  	<li><strong>Copy/Move:</strong> Hover → Copy icon.</li>
  	<li><strong>Print:</strong> Generates a clean, checklist-style print view. Works for long lists across multiple pages.</li>
 </ul>
@@ -124,6 +124,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
  	<li>Prune orphans</li>
  	<li>Purge All Data</li>
  	<li>Reset Defaults</li>
+    <li>Reset Task Relationships (flattens hierarchy)</li>
 </ul>
 </li>
 </ul>
@@ -218,6 +219,23 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 <h2>Version History</h2>
 [expand title="<strong><em>Click to view full TaskBox changelog</em></strong>"]
 <ul>
+    <li><strong>3.11.3 – 2025-11-08</strong>
+<ul>
+    <li>Added "Reset Task Relationships" maintenance tool to flatten corrupt task hierarchies.</li>
+</ul>
+</li>
+    <li><strong>3.11.2 – 2025-11-06</strong>
+<ul>
+    <li>Refined Parent/Child task logic and UI.</li>
+    <li>Updated Tooltips and Global View Family Context.</li>
+</ul>
+</li>
+    <li><strong>3.11.0 – 2025-11-05</strong>
+<ul>
+    <li>Added Sub-task Support via Parent Task logic.</li>
+    <li>Removed single-dependency restriction.</li>
+</ul>
+</li>
     <li><strong>3.10.6 – 2025-11-02</strong>
 <ul>
     <li>Added Sidebar Accordion Mode.</li>

@@ -49,7 +49,7 @@ const ModalManager: React.FC = () => {
                         if (specialView === 'all') match = true;
                         if (specialView === 'importance' && task.importance === 2) match = true;
                         if (specialView === 'pinned' && task.pinned) match = true;
-                        if (specialView === 'dependencies' && task.dependsOn) match = true;
+                        if (specialView === 'dependencies' && task.parentTaskId) match = true; // Updated logic
                         if (specialView === 'focused' && task.focused) match = true;
                         
                         if (match) allTasks.push(task);

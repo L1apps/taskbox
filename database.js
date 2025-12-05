@@ -175,16 +175,31 @@ async function initializeDatabase() {
           table.integer('importance').defaultTo(0);
           table.integer('list_id').unsigned().references('id').inTable('lists').onDelete('CASCADE');
           table.integer('dependsOn').unsigned().references('id').inTable('tasks').onDelete('SET NULL');
+          table.integer('parent_task_id').unsigned().references('id').inTable('tasks').onDelete('SET NULL');
+          table.boolean('is_parent_selectable').defaultTo(true);
           table.boolean('pinned').defaultTo(false);
           table.boolean('focused').defaultTo(false);
           table.integer('sort_order').defaultTo(0);
           table.integer('global_sort_order').defaultTo(0);
         });
     } else {
+        // We keep 'dependsOn' for legacy safety if needed, but add 'parent_task_id'
         const hasDependsOn = await db.schema.hasColumn('tasks', 'dependsOn');
         if (!hasDependsOn) {
             await db.schema.alterTable('tasks', t => t.integer('dependsOn').unsigned().references('id').inTable('tasks').onDelete('SET NULL'));
         }
+        
+        const hasParentTaskId = await db.schema.hasColumn('tasks', 'parent_task_id');
+        if (!hasParentTaskId) {
+            console.log("Adding parent_task_id to tasks table for subtasks...");
+            await db.schema.alterTable('tasks', t => t.integer('parent_task_id').unsigned().references('id').inTable('tasks').onDelete('SET NULL'));
+        }
+
+        const hasIsParentSelectable = await db.schema.hasColumn('tasks', 'is_parent_selectable');
+        if (!hasIsParentSelectable) {
+            await db.schema.alterTable('tasks', t => t.boolean('is_parent_selectable').defaultTo(true));
+        }
+
         const hasPinned = await db.schema.hasColumn('tasks', 'pinned');
         if (!hasPinned) {
             await db.schema.alterTable('tasks', t => t.boolean('pinned').defaultTo(false));
@@ -238,10 +253,10 @@ async function seedDatabase(db, userId) {
         });
 
         const tasks = [
-            { description: 'Milk', completed: false, importance: 1, list_id: listId, sort_order: 1 },
-            { description: 'Eggs', completed: false, importance: 1, list_id: listId, sort_order: 2 },
-            { description: 'Bread', completed: false, importance: 0, list_id: listId, sort_order: 3 },
-            { description: 'Meat', completed: false, importance: 2, list_id: listId, sort_order: 4 }
+            { description: 'Milk', completed: false, importance: 1, list_id: listId, sort_order: 1, is_parent_selectable: true },
+            { description: 'Eggs', completed: false, importance: 1, list_id: listId, sort_order: 2, is_parent_selectable: true },
+            { description: 'Bread', completed: false, importance: 0, list_id: listId, sort_order: 3, is_parent_selectable: true },
+            { description: 'Meat', completed: false, importance: 2, list_id: listId, sort_order: 4, is_parent_selectable: true }
         ];
 
         await db('tasks').insert(tasks);

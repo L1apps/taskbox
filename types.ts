@@ -1,6 +1,4 @@
 
-
-
 export interface User {
   id: number;
   username: string;
@@ -19,7 +17,8 @@ export interface Task {
   dueDate: string | null;
   createdAt: string; // ISO Date string
   importance: number; // 0: Low, 1: Medium, 2: High
-  dependsOn?: number | null;
+  parentTaskId?: number | null; // Changed from dependsOn to parentTaskId for sub-task logic
+  isParentSelectable: boolean; // New field: determines if task can be a parent (Active/Inactive)
   pinned: boolean;
   focused: boolean; // Added for Focused list
   list_id?: number; // Added for search results context
@@ -59,6 +58,8 @@ export enum SortOption {
     IMPORTANCE_DESC = 'importance_desc',
     DEPENDENCY_ASC = 'dependency_asc',
     DEPENDENCY_DESC = 'dependency_desc',
+    RELATIONSHIP_ASC = 'relationship_asc',
+    RELATIONSHIP_DESC = 'relationship_desc',
     CUSTOM = 'custom', // Added for custom sorting logic
 }
 

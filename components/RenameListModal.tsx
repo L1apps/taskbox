@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import Modal from './Modal';
 import { Theme, TaskListWithUsers } from '../types';
@@ -35,7 +36,9 @@ const RenameListModal: React.FC<RenameListModalProps> = ({ onClose, onRename, li
             className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
             autoFocus
             required
+            maxLength={20}
           />
+          <div className="text-right text-xs text-gray-400 mt-1">{title.length}/20</div>
         </div>
         <div className="flex justify-end pt-2 space-x-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500">Cancel</button>

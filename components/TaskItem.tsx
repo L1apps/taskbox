@@ -12,6 +12,11 @@ interface TaskItemProps {
   onCopyRequest: (task: Task) => void;
   readOnly?: boolean;
   canDelete?: boolean;
+  isCustomSort?: boolean;
+  // Drag Events
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>, task: Task) => void;
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDrop?: (e: React.DragEvent<HTMLDivElement>, targetTask: Task) => void;
 }
 
 const ImportanceFlag: React.FC<{ level: number; onClick: () => void; disabled?: boolean }> = ({ level, onClick, disabled }) => {
@@ -63,7 +68,20 @@ const FocusButton: React.FC<{ focused: boolean; onClick: () => void; disabled: b
     );
 };
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpdate, onRemove, onCopyRequest, readOnly = false, canDelete = true }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ 
+    task, 
+    theme, 
+    allTasksInList, 
+    onUpdate, 
+    onRemove, 
+    onCopyRequest, 
+    readOnly = false, 
+    canDelete = true,
+    isCustomSort = false,
+    onDragStart,
+    onDragOver,
+    onDrop
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [description, setDescription] = useState(task.description);
 
@@ -152,13 +170,37 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
     ? new Date(task.createdAt).toLocaleString() 
     : 'N/A';
 
+  // Drag and drop handlers wrapper
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+      if (isCustomSort && onDragStart) onDragStart(e, task);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+      if (isCustomSort && onDrop) onDrop(e, task);
+  };
+
   return (
     <>
     {/* Screen View */}
-    <div className={`print-hidden flex flex-col md:flex-row md:items-center p-3 rounded-lg transition-colors gap-2 md:gap-0 ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))}`}>
+    <div 
+        className={`print-hidden flex flex-col md:flex-row md:items-center p-3 rounded-lg transition-colors gap-2 md:gap-0 ${task.pinned ? (isOrange ? 'bg-orange-900/50' : 'bg-blue-100 dark:bg-blue-900/50') : (task.completed ? 'bg-gray-100 dark:bg-gray-700 opacity-70' : (isOrange ? 'bg-gray-900' : 'bg-white dark:bg-gray-800 shadow-sm'))} ${isCustomSort ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        draggable={isCustomSort}
+        onDragStart={handleDragStart}
+        onDragOver={onDragOver}
+        onDrop={handleDrop}
+    >
       
       {/* Left Group */}
       <div className="flex items-center">
+        {/* Drag Handle */}
+        {isCustomSort && (
+            <div className="mr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-grab active:cursor-grabbing" title="Drag to reorder">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-8a2 2 0 10-.001-4.001A2 2 0 0013 6zm0 2a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z" />
+                </svg>
+            </div>
+        )}
+
         <CheckboxWrapper>
             <input
             type="checkbox"
@@ -184,12 +226,14 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, theme, allTasksInList, onUpda
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={handleUpdate}
+            maxLength={102}
             onKeyDown={(e) => { if (e.key === 'Enter') handleUpdate(); if (e.key === 'Escape') { setDescription(task.description); setIsEditing(false); } }}
             className={`w-full bg-transparent border-b ${borderFocusColor} focus:outline-none ${inputTextColor} ${isOrange ? 'bg-white/10 rounded px-1' : ''}`}
             autoFocus
           />
         ) : (
           <>
+              {/* Changed break-all to break-words to avoid splitting words incorrectly */}
               <p 
                 onClick={() => !readOnly && setIsEditing(true)} 
                 className={`break-words whitespace-normal ${task.completed ? 'line-through text-gray-500 dark:text-gray-400' : ''} ${readOnly ? 'cursor-default' : 'cursor-pointer'}`}

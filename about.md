@@ -15,7 +15,7 @@ TaskBox uses a strict **3-level hierarchy** to keep organization clean while all
 *Rule:* Any specific list can contain **Tasks** OR **Sublists**, but never both at the same time. This is known as "Container Mode".
 
 ### 2. Permissions
-*   **Owner:** The user who created the list. Only the owner can Move, Merge, Delete, or Share the list.
+*   **Owner:** The user who created the list. Only the owner can Move, Merge, Delete, Transfer, or Share the list.
 *   **Shared User:** Can interact with the list based on assigned permission level:
     *   **View Only:** Can only view tasks and list details. No editing allowed.
     *   **Modify:** Can Add, Edit, and Complete tasks. Cannot Delete tasks.
@@ -51,6 +51,7 @@ Located in the sidebar header, the file cabinet icon allows you to see tasks fro
 *   **Show all Tasks:** Aggregates every active task you have access to.
 *   **Importance:** Filters for tasks marked with Medium (Yellow) or High (Red) importance.
 *   **Show Pinned Tasks:** Filters for tasks you have pinned.
+*   **All Due Tasks:** Shows all tasks that have a Due Date set, regardless of list.
 *   **Show Dependent Tasks:** Filters for tasks that are waiting on another task. Shows dependency name inline.
 *   **Note:** You cannot Import files or Paste items when in a Global View, as there is no specific list to add them to.
 
@@ -58,6 +59,7 @@ Located in the sidebar header, the file cabinet icon allows you to see tasks fro
 *   **Add Task:** Type in the input field at the bottom of a list and press Enter.
 *   **Edit:** Click any task text to edit it inline.
 *   **Complete:** Click the checkbox. Completed tasks move to the bottom or are hidden via the "Checkbox" icon toggle.
+*   **Custom Order:** Toggle the "Box List" icon to enable manual sorting. Use Up/Down arrows to reorder tasks exactly as you wish. (Note: Custom Sort is disabled in most Global Views).
 *   **Importance:** Click the flag icon to cycle through Low (Gray), Medium (Yellow), and High (Red) importance.
 *   **Pin:** Click the pin icon to stick the task to the top of the list, regardless of sorting.
 *   **Dependencies:** Use the dropdown on the right of a task to select a prerequisite. You cannot complete a task until its dependency is finished.
@@ -66,12 +68,21 @@ Located in the sidebar header, the file cabinet icon allows you to see tasks fro
 
 ### 📂 List Actions
 Hover over the list name or look at the sidebar toolbar to access actions:
-*   **Rename:** Change the list title.
+*   **View Mode:** The button in the top right of the sidebar cycles through 3 modes:
+    1.  **Accordion Mode (List Icon):** Opening a list automatically closes other lists to keep the view tidy.
+    2.  **Expand All (Arrows Out):** Expands every list hierarchy.
+    3.  **Collapse All (Arrows In):** Collapses every list hierarchy.
+*   **Rename:** Change the list title (Max 20 chars).
 *   **Move:** Move a list to the Top Level or into another Master List. (Validates against hierarchy rules).
 *   **Merge:** Combine two lists. Select a target, and all tasks from the current list will be moved there. The old list is deleted.
 *   **Share:** Grant access to other users with View Only, Modify, or Full Access permissions.
+    *   *Transfer Ownership:* Make another user the full owner of a list. (Admins can override).
     *   *Upward Sharing:* Sharing a sublist automatically shares the parent container so the user can navigate to it.
     *   *Recursive Sharing:* Sharing a Master List automatically grants access to all its sublists.
+*   **View Settings:** 
+    *   **Global Persistence:** By default, TaskBox remembers your sort order, filters (like "Show Completed"), and dependency grouping for *all* lists and Global Views. This can be toggled in **User Settings**.
+    *   **Per-List Override:** You can toggle persistence on or off for a specific list using the "Eye" icon in the list toolbar (left of the Custom Sort button).
+*   **Settings:** Access via the Share/Gear icon.
 
 ### 📋 Copy / Paste & Import
 *   **Copy / Paste (Clipboard):** Click the clipboard icon in the header.
@@ -94,6 +105,12 @@ Accessible only to the Admin user via the shield icon in the header.
     *   *Purge All:* Wipes all lists/tasks (Emergency use only).
     *   *Reset Defaults:* Wipes data and restores the demo "Groceries" list.
 
+### 👤 User Settings
+Accessible via the user icon in the header.
+*   **Global View Preferences:** Toggle default "Remember View Settings" for all lists and reset all saved views.
+*   **Change Password/Username:** Update your credentials.
+*   **Session Timeout:** Configure how long your login lasts.
+
 ### 🎨 Themes
 TaskBox supports three themes, toggled via the moon/sun icon in the header:
 1.  **Light:** Standard white/gray interface.
@@ -113,9 +130,11 @@ If asked by support to provide UI details, you can enable **Debug Mode**.
 2.  **List Limits (Per User):**
     *   **20** Grandparent (Root) Lists.
     *   **10** Parent/Child (Nested) Lists per container.
+    *   **20** Characters Max for List Title.
 3.  **Task Limits (Per User):**
     *   **50** Tasks per specific list.
     *   **5,000** Tasks total per user.
+    *   **102** Characters Max for Task Description.
 4.  **Max Depth:** 3 Levels (Master → Sublist → Nested Sublist).
 5.  **Dependency Depth:** Max 5 levels.
 6.  **Single Session:** SQLite may lock under heavy parallel writes.

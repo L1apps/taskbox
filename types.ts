@@ -1,4 +1,6 @@
 
+
+
 export interface User {
   id: number;
   username: string;
@@ -21,6 +23,8 @@ export interface Task {
   pinned: boolean;
   focused: boolean; // Added for Focused list
   list_id?: number; // Added for search results context
+  sortOrder: number; // Added for custom sorting
+  globalSortOrder: number; // Added for global view sorting
 }
 
 export interface TaskList {
@@ -36,7 +40,7 @@ export interface TaskList {
 export interface TaskListWithUsers extends TaskList {
   ownerId: number;
   sharedWith: SharedUser[];
-  currentUserPermission?: 'OWNER' | 'VIEW' | 'MODIFY' | 'FULL';
+  currentUserPermission?: 'OWNER' | 'VIEW' | 'MODIFY' | 'FULL' | 'NONE';
 }
 
 export type Theme = 'light' | 'dark' | 'orange';
@@ -55,6 +59,7 @@ export enum SortOption {
     IMPORTANCE_DESC = 'importance_desc',
     DEPENDENCY_ASC = 'dependency_asc',
     DEPENDENCY_DESC = 'dependency_desc',
+    CUSTOM = 'custom', // Added for custom sorting logic
 }
 
 export interface LogEntry {

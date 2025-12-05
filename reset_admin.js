@@ -7,9 +7,14 @@
  *   2. Run script: node reset_admin.js <username> <new_password>
  */
 
-const knex = require('knex');
-const bcrypt = require('bcrypt');
-const path = require('path');
+import knex from 'knex';
+import bcrypt from 'bcrypt';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Replicate __dirname for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const args = process.argv.slice(2);
 if (args.length < 2) {
@@ -19,7 +24,8 @@ if (args.length < 2) {
 
 const [username, newPassword] = args;
 const SALT_ROUNDS = 10;
-const dbPath = process.env.NODE_ENV === 'production' ? '/app/data/taskbox.db' : './data/taskbox.db';
+// Handle path for both local dev and production container
+const dbPath = process.env.NODE_ENV === 'production' ? '/app/data/taskbox.db' : path.join(__dirname, 'data', 'taskbox.db');
 
 const db = knex({
     client: 'sqlite3',

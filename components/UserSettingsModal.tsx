@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import { Theme, User } from '../types';
+import { useTaskBox } from '../contexts/TaskBoxContext';
+import Tooltip from './Tooltip';
 
 interface UserSettingsModalProps {
   onClose: () => void;
@@ -12,6 +14,8 @@ interface UserSettingsModalProps {
 }
 
 const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose, theme, user, apiFetch, onUserUpdated }) => {
+    const { globalViewPersistence, setGlobalViewPersistence, resetAllViewSettings } = useTaskBox();
+    
     const [username, setUsername] = useState(user.username);
     const [password, setPassword] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
@@ -29,16 +33,27 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose, theme, u
         setError('');
         setSuccess('');
 
+        // Check if anything sensitive has changed
+        const hasUsernameChanged = username !== user.username;
+        const hasSessionTimeoutChanged = sessionTimeout !== (user.sessionTimeout || '');
+        const hasPasswordChanged = password.length > 0;
+
+        if (!hasUsernameChanged && !hasSessionTimeoutChanged && !hasPasswordChanged) {
+            // Nothing critical changed, just close (Global preferences are already saved via their own handlers)
+            onClose();
+            return;
+        }
+
         if (!currentPassword) {
-            setError("Current password is required to make changes.");
+            setError("Current password is required to make account changes.");
             return;
         }
 
         try {
             const body: any = { currentPassword };
-            if (username !== user.username) body.username = username;
-            if (password) body.password = password;
-            if (sessionTimeout !== user.sessionTimeout) body.sessionTimeout = sessionTimeout;
+            if (hasUsernameChanged) body.username = username;
+            if (hasPasswordChanged) body.password = password;
+            if (hasSessionTimeoutChanged) body.sessionTimeout = sessionTimeout;
 
             const res = await apiFetch('/api/users/me', {
                 method: 'PUT',
@@ -60,10 +75,47 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose, theme, u
             setError(msg);
         }
     };
+    
+    const handleResetViews = () => {
+        if (window.confirm("Are you sure? This will clear ALL remembered sort, filter, and view settings for every list.")) {
+            resetAllViewSettings();
+            setSuccess('All view settings reset.');
+        }
+    };
 
     return (
         <Modal title="User Settings" onClose={onClose} theme={theme}>
             <form onSubmit={handleUpdate} className="space-y-4">
+                
+                {/* Global View Settings */}
+                <div className={`p-3 rounded border ${isOrange ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}>
+                    <h4 className={`text-sm font-semibold mb-2 ${isOrange ? 'text-gray-200' : 'text-gray-700 dark:text-gray-200'}`}>Global View Preferences</h4>
+                    
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                checked={globalViewPersistence} 
+                                onChange={(e) => setGlobalViewPersistence(e.target.checked)}
+                                className={`rounded border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 ${isOrange ? 'text-orange-500 focus:ring-orange-500' : 'text-blue-600'}`} 
+                            />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Remember view settings by default</span>
+                        </label>
+                        <Tooltip text="Clears all saved view data for all lists">
+                            <button 
+                                type="button" 
+                                onClick={handleResetViews} 
+                                className="text-xs text-red-500 hover:text-red-700 underline"
+                            >
+                                Reset All Views
+                            </button>
+                        </Tooltip>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                        Applies to Sort Order, Completed Filters, and special views like Focused/All Tasks. Can be toggled per-list in the list toolbar.
+                    </p>
+                </div>
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
                     <input 
@@ -100,15 +152,15 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ onClose, theme, u
                     </select>
                      <p className="text-xs text-gray-500 mt-1">Changes take effect on next login.</p>
                 </div>
-
+                
                 <div className="pt-4 border-t dark:border-gray-700">
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Password (Required)</label>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Password (Required for account changes)</label>
                     <input 
                         type="password" 
                         value={currentPassword} 
                         onChange={e => setCurrentPassword(e.target.value)} 
                         className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${focusRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
-                        required
+                        required={username !== user.username || password.length > 0 || sessionTimeout !== (user.sessionTimeout || '')}
                     />
                 </div>
 

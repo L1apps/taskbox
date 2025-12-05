@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.9.15
+**Version:** 3.10.6
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -80,18 +80,22 @@ docker run -d \
 
 ## Features
 
+*   **Remember Last List:** Automatically reloads the last list you were viewing.
+*   **Global View Persistence:** By default, all lists and Global Views remember your sort/filter settings. This can be toggled globally in User Settings or individually per list via the toolbar.
+*   **Custom Task Ordering:** Manual Up/Down sorting toggled per list.
+*   **Sidebar Controls:** Tri-state toggle for Expand All, Collapse All, and **Accordion Mode** (auto-close other lists).
 *   **Focused List:** Keep track of your most important tasks using the new permanent "Focused" list.
-*   **Global Views:** View tasks across all lists via the "File Cabinet". Now includes list filtering and dependency visualization.
+*   **Global Views:** View tasks across all lists via the "File Cabinet". Now includes "All Due Tasks" view.
 *   **Global Search:** Instantly find tasks across all your lists using the search bar in the header.
 *   **Printing:** Clean, ink-friendly print view. Supports printing Global Views and Focused lists properly across multiple pages.
 *   **Duplicate Prevention:** Strict checks during paste/import to prevent creating duplicate tasks.
 *   **Clipboard Management:** Copy active lists to clipboard (All Data or Descriptions Only) or paste tasks.
 *   **Sidebar Toolbar:** Centralized control for list actions (Rename, Share, Move, Merge, Delete).
 *   **Nested Lists:** Hierarchical structure (Top Level -> Master List -> Sublist -> Nested Sublist). Max nesting depth is 3 levels.
-*   **Persistent View:** Your sort order and view filters are saved automatically.
 *   **Merge Lists:** Consolidate lists by merging them together.
 *   **Multi-User Support:** Secure user registration and login system.
 *   **Shared Permissions:** Share lists with specific access levels: View Only, Modify, or Full Access.
+*   **Ownership Transfer:** Transfer full ownership of lists to other users. Admins can force transfer.
 *   **Admin Panel:** User management, security logs, and database maintenance.
 *   **Database Backup/Restore:** Download full backups or restore DB via file upload (Admin only).
 *   **Import/Export:** Support for CSV and Text files. (Import disabled in Global Views).
@@ -127,6 +131,11 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
+*   **v3.10.6:** Sidebar Accordion Mode, Global View Persistence Settings, Admin Take Ownership override.
+*   **v3.10.5:** Added "All Due Tasks" view, Stats Export, and refined UI for Task Wrapping and Admin tools.
+*   **v3.10.2:** Fixed Docker networking IP binding issue (listening on 0.0.0.0).
+*   **v3.10.1:** Security hardening for Database Restore, Import limits, and text wrapping fixes.
+*   **v3.10.0:** Persistent active list, custom task ordering, ownership transfer, title length limits.
 *   **v3.9.15:** Enforced User, List, and Task limits for better performance and stability.
 *   **v3.9.14:** Improved Dependency grouping logic, UI consistency in Toolbars, and Importance sorting updates.
 *   **v3.9.13:** Added granular sharing permissions (View/Modify/Full). Updated dependency grouping logic. UI updates for Focus/Importance icons.

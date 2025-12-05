@@ -49,8 +49,25 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({ onAddTask, onWarning, theme, 
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Add a new task..."
-            className={`w-full px-4 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${themeRingColor} ${inputTextColor} ${isDuplicate ? 'pl-10 border-yellow-400' : ''}`}
+            maxLength={102}
+            className={`w-full pl-4 pr-14 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 ${themeRingColor} ${inputTextColor} ${isDuplicate ? 'pl-10 border-yellow-400' : ''}`}
           />
+          
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+              <span className="text-xs text-gray-400 pointer-events-none">{description.length}/102</span>
+              {description && (
+                  <button 
+                    type="button"
+                    onClick={() => setDescription('')}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                  </button>
+              )}
+          </div>
+
           {isDuplicate && (
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
                   <Tooltip text="This task already exists in this list" align="left">

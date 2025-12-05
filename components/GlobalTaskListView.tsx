@@ -5,18 +5,24 @@ import { useModal } from '../contexts/ModalContext';
 import TaskItem from './TaskItem';
 import { Task, SortOption } from '../types';
 import Tooltip from './Tooltip';
-import useLocalStorage from '../hooks/useLocalStorage';
 
 const GlobalTaskListView: React.FC = () => {
-    const { lists, specialView, theme, updateTask, removeTask } = useTaskBox();
+    const { lists, specialView, theme, updateTask, removeTask, reorderGlobalTasks, globalViewPersistence } = useTaskBox();
     const { openModal } = useModal();
     
     // State for local view controls
-    const [sort, setSort] = useLocalStorage<SortOption>('taskbox-global-sort', SortOption.DEFAULT);
+    const [sort, setSort] = useState<SortOption>(SortOption.DEFAULT);
     const [showCompleted, setShowCompleted] = useState<boolean>(false);
     
     // Dependency View Mode: 0 = Default, 1 = Grouped + All, 2 = Grouped Dependencies Only
     const [dependencyMode, setDependencyMode] = useState<number>(0);
+
+    // Custom Sort
+    const [isCustomSortEnabled, setIsCustomSortEnabled] = useState(false);
+    const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+
+    // Persistence Override State
+    const [listPersistence, setListPersistence] = useState<boolean>(true);
 
     const [localSearch, setLocalSearch] = React.useState('');
     const [showListFilter, setShowListFilter] = useState(false);
@@ -24,17 +30,81 @@ const GlobalTaskListView: React.FC = () => {
     // Default to all lists selected initially. State stores IDs of excluded lists.
     const [excludedListIds, setExcludedListIds] = useState<Set<number>>(new Set());
 
-    // Reset filter and dependency mode when switching special views
+    // Initialize View State on Load/Switch
     useEffect(() => {
-        setExcludedListIds(new Set());
-        // If "Dependent Tasks" sidebar item is clicked, default to mode 2
-        if (specialView === 'dependencies') {
-            setDependencyMode(2);
-        } else {
-            setDependencyMode(0);
+        // 1. Determine Persistence
+        const viewId = specialView || 'global';
+        const overrideKey = `taskbox-persistence-override-global-${viewId}`;
+        const storedOverride = localStorage.getItem(overrideKey);
+        
+        let shouldPersist = globalViewPersistence;
+        if (storedOverride !== null) {
+            shouldPersist = storedOverride === 'true';
         }
-        setShowCompleted(false);
-    }, [specialView]);
+        setListPersistence(shouldPersist);
+
+        // 2. Default Values
+        let initSort = SortOption.DEFAULT;
+        let initShowCompleted = false;
+        let initDepMode = 0;
+        let initExcluded: number[] = [];
+
+        // Special Default Logic for Dependencies View
+        if (specialView === 'dependencies') initDepMode = 2;
+
+        // 3. Load Saved State if Persisting
+        if (shouldPersist) {
+            try {
+                const savedState = JSON.parse(localStorage.getItem(`taskbox-global-view-state-${viewId}`) || '{}');
+                if (savedState.sort) initSort = savedState.sort;
+                if (savedState.showCompleted !== undefined) initShowCompleted = savedState.showCompleted;
+                if (savedState.dependencyMode !== undefined) initDepMode = savedState.dependencyMode;
+                if (savedState.excludedListIds) initExcluded = savedState.excludedListIds;
+            } catch (e) {
+                console.error("Error loading global view state", e);
+            }
+        }
+
+        setSort(initSort);
+        setShowCompleted(initShowCompleted);
+        setDependencyMode(initDepMode);
+        setExcludedListIds(new Set(initExcluded));
+        
+        // Custom sort is view-specific and often transient, resetting on view switch for simplicity unless specifically enabled in a persistent way logic,
+        // but for now we reset it to ensure clean state.
+        setIsCustomSortEnabled(false);
+        setDraggedTask(null);
+        setLocalSearch('');
+
+    }, [specialView, globalViewPersistence]);
+
+    // Save State on Change
+    useEffect(() => {
+        const viewId = specialView || 'global';
+        if (listPersistence) {
+            const stateToSave = {
+                sort,
+                showCompleted,
+                dependencyMode,
+                excludedListIds: Array.from(excludedListIds)
+            };
+            localStorage.setItem(`taskbox-global-view-state-${viewId}`, JSON.stringify(stateToSave));
+        }
+    }, [sort, showCompleted, dependencyMode, excludedListIds, specialView, listPersistence]);
+
+    const toggleListPersistence = () => {
+        const viewId = specialView || 'global';
+        const newValue = !listPersistence;
+        setListPersistence(newValue);
+        localStorage.setItem(`taskbox-persistence-override-global-${viewId}`, String(newValue));
+
+        if (!newValue) {
+            localStorage.removeItem(`taskbox-global-view-state-${viewId}`);
+        } else {
+            const stateToSave = { sort, showCompleted, dependencyMode, excludedListIds: Array.from(excludedListIds) };
+            localStorage.setItem(`taskbox-global-view-state-${viewId}`, JSON.stringify(stateToSave));
+        }
+    };
 
     const filterMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -69,6 +139,8 @@ const GlobalTaskListView: React.FC = () => {
                     if (specialView === 'dependencies') match = true;
                     
                     if (specialView === 'focused' && task.focused) match = true;
+                    
+                    if (specialView === 'due_tasks' && task.dueDate) match = true;
 
                     if (match) {
                         allTasks.push({ task, listTitle: list.title });
@@ -121,6 +193,50 @@ const GlobalTaskListView: React.FC = () => {
         return result;
     };
 
+    // Drag Handlers
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, task: Task) => {
+        setDraggedTask(task);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData("text/plain", String(task.id));
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetTask: Task) => {
+        e.preventDefault();
+        if (!draggedTask || draggedTask.id === targetTask.id) return;
+
+        // Get the current visible list sorted by globalSortOrder
+        // We use the same 'processed' list logic but without the final map/grouping complexity
+        // to simplify index calculation.
+        
+        const sortableList = rawTasks.filter(({ task }) => {
+            if (!showCompleted && task.completed) return false;
+            if (localSearch && !task.description.toLowerCase().includes(localSearch.toLowerCase())) return false;
+            return true;
+        }).sort((a, b) => (a.task.globalSortOrder || 0) - (b.task.globalSortOrder || 0));
+
+        const sourceIndex = sortableList.findIndex(t => t.task.id === draggedTask.id);
+        const targetIndex = sortableList.findIndex(t => t.task.id === targetTask.id);
+
+        if (sourceIndex === -1 || targetIndex === -1) return;
+
+        const [removed] = sortableList.splice(sourceIndex, 1);
+        sortableList.splice(targetIndex, 0, removed);
+
+        // Recalculate globalSortOrder for visible tasks
+        const updates = sortableList.map((item, index) => ({
+            id: item.task.id,
+            globalSortOrder: index + 1
+        }));
+
+        await reorderGlobalTasks(updates);
+        setDraggedTask(null);
+    };
+
     const sortedAndFilteredResults = useMemo(() => {
         // 1. Initial Filtering
         let processed = rawTasks.filter(({ task }) => {
@@ -160,10 +276,15 @@ const GlobalTaskListView: React.FC = () => {
         };
 
         const sortTasks = (taskList: typeof processed) => {
+            
+            // Custom Sort Override
+            if (isCustomSortEnabled) {
+                return taskList.sort((a, b) => (a.task.globalSortOrder || 0) - (b.task.globalSortOrder || 0));
+            }
+
             // Force Priority Sort if Dependency Mode is Active
             // We want Dependent tasks to appear 'first' (or at least be the anchors for grouping)
             // If Mode 1 or 2: Primary Sort Key = Has Dependency (Desc)
-            
             const isDependencySort = dependencyMode > 0;
 
             const sorted = taskList.sort((aItem, bItem) => {
@@ -199,9 +320,9 @@ const GlobalTaskListView: React.FC = () => {
 
         const sortedList = sortTasks(processed);
 
-        if (dependencyMode === 0) return sortedList.map(item => ({ ...item, depth: 0 }));
+        if (dependencyMode === 0 || isCustomSortEnabled) return sortedList.map(item => ({ ...item, depth: 0 }));
 
-        // Apply Grouping for Mode 1 and 2
+        // Apply Grouping for Mode 1 and 2 (Only if custom sort is OFF)
         let grouped = groupTasksByDependency(sortedList);
 
         if (dependencyMode === 2) {
@@ -216,7 +337,7 @@ const GlobalTaskListView: React.FC = () => {
 
         return grouped;
 
-    }, [rawTasks, showCompleted, localSearch, sort, dependencyMode]);
+    }, [rawTasks, showCompleted, localSearch, sort, dependencyMode, isCustomSortEnabled]);
 
     const isOrange = theme === 'orange';
     const highlightColor = isOrange ? 'text-orange-400' : 'text-blue-600 dark:text-blue-400';
@@ -230,17 +351,20 @@ const GlobalTaskListView: React.FC = () => {
             case 'pinned': return 'Pinned Tasks';
             case 'dependencies': return 'Dependent Tasks';
             case 'focused': return 'Focused';
+            case 'due_tasks': return 'All Due Tasks';
             default: return 'Global View';
         }
     };
 
     const handleSortClick = (optionAsc: SortOption, optionDesc: SortOption) => {
+        if (isCustomSortEnabled) return;
         if (sort === optionAsc) setSort(optionDesc);
         else if (sort === optionDesc) setSort(SortOption.DEFAULT);
         else setSort(optionAsc);
     };
   
     const getSortIcon = (optionAsc: SortOption, optionDesc: SortOption) => {
+        if (isCustomSortEnabled) return null;
         if (sort === optionAsc) return <span className="ml-1 text-xs">▲</span>;
         if (sort === optionDesc) return <span className="ml-1 text-xs">▼</span>;
         return <span className="ml-1 text-xs opacity-0 group-hover:opacity-50">▲▼</span>;
@@ -270,6 +394,8 @@ const GlobalTaskListView: React.FC = () => {
         }
     };
 
+    const isAllSelected = excludedListIds.size === 0;
+
     const getDependencyToggleIcon = () => {
         // Link Icon for all states, color indicates state
         const colorClass = dependencyMode > 0 
@@ -286,10 +412,14 @@ const GlobalTaskListView: React.FC = () => {
     const getDependencyToggleText = () => {
         if (dependencyMode === 0) return "Group by Dependency";
         if (dependencyMode === 1) return "Show only Dependency Groups";
-        return "Hide only Dependency Groups"; // Text might not be perfectly accurate to mode 2 behavior but keeps rotation logic
+        return "Hide only Dependency Groups"; 
     };
 
-    const isAllSelected = excludedListIds.size === 0;
+    // Safe Check: Disable drag if searching to avoid re-indexing filtered results incorrectly
+    // Also ensuring no lists are excluded for global sort to keep index integrity relative to all possible items
+    // AND Only allow for Focused and Dependent views (as per user request)
+    const canUseCustomSort = specialView === 'focused' || specialView === 'dependencies';
+    const isDragEnabled = canUseCustomSort && isCustomSortEnabled && !localSearch && excludedListIds.size === 0;
 
     return (
         <div className="p-4 sm:p-6 flex flex-col h-full relative print:block print:h-auto print:overflow-visible">
@@ -304,9 +434,9 @@ const GlobalTaskListView: React.FC = () => {
                         {getTitle()}
                     </h2>
                     <p className="text-gray-500 mt-2 print-hidden">
-                        {specialView === 'focused' 
-                            ? 'Your active focus list.' 
-                            : 'Showing active tasks from all lists.'}
+                        {specialView === 'focused' ? 'Your active focus list.' : 
+                         specialView === 'due_tasks' ? 'Tasks with due dates.' :
+                         'Showing active tasks from all lists.'}
                     </p>
                  </div>
             </div>
@@ -340,6 +470,51 @@ const GlobalTaskListView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 sm:ml-auto">
+                    
+                    {/* View Persistence Toggle */}
+                    <Tooltip text={listPersistence ? "Disable Saved View" : "Enable Saved View"} debugLabel="Global View Persistence Toggle">
+                        <button
+                            onClick={toggleListPersistence}
+                            className={`flex items-center justify-center h-10 w-10 rounded-md border transition-colors ${listPersistence 
+                                ? (isOrange ? 'bg-orange-900/50 border-orange-500 text-orange-400' : 'bg-blue-100 border-blue-400 text-blue-600 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-400') 
+                                : (isOrange ? 'border-gray-600 hover:bg-gray-800 text-gray-500' : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-500')}`}
+                        >
+                            {listPersistence ? (
+                                // Eye Icon
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                </svg>
+                            ) : (
+                                // Eye Off Icon
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.064 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                                </svg>
+                            )}
+                        </button>
+                    </Tooltip>
+
+                    {/* Custom Sort Toggle - Only for Focused and Dependencies */}
+                    {canUseCustomSort && (
+                        <Tooltip text={isCustomSortEnabled ? "Disable Custom Order" : "Enable Custom Order"} debugLabel="Global Custom Sort Toggle">
+                            <button
+                                onClick={() => setIsCustomSortEnabled(!isCustomSortEnabled)}
+                                className={`flex items-center justify-center h-10 w-10 rounded-md border transition-colors ${isCustomSortEnabled 
+                                    ? (isOrange ? 'bg-orange-900/50 border-orange-500 text-orange-400' : 'bg-blue-100 border-blue-400 text-blue-600 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-400') 
+                                    : (isOrange ? 'border-gray-600 hover:bg-gray-800 text-gray-500' : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-500')}`}
+                            >
+                                {/* List inside a box icon */}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                    <line x1="7" y1="8" x2="17" y2="8" />
+                                    <line x1="7" y1="12" x2="17" y2="12" />
+                                    <line x1="7" y1="16" x2="17" y2="16" />
+                                </svg>
+                            </button>
+                        </Tooltip>
+                    )}
+
                     {/* List Filter Button */}
                     <div className="relative" ref={filterMenuRef}>
                         <Tooltip text="Filter List">
@@ -387,8 +562,8 @@ const GlobalTaskListView: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Dependency View Toggle - Only show if NOT in Dependent Tasks View */}
-                    {specialView !== 'dependencies' && (
+                    {/* Dependency View Toggle - Only show if NOT in Dependent Tasks View and NOT custom sort */}
+                    {specialView !== 'dependencies' && !isCustomSortEnabled && (
                         <Tooltip text={getDependencyToggleText()} debugLabel="Global Dependency Toggle">
                             <button
                                 onClick={cycleDependencyMode}
@@ -436,14 +611,14 @@ const GlobalTaskListView: React.FC = () => {
 
             {/* Sort Headers - Fixed Alignment */}
             <div className={`hidden md:flex items-center px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 mb-2 ${headerTextColor} no-print`}>
-                <div className="w-[120px] text-center mr-3 cursor-pointer hover:text-blue-500 flex items-center justify-start group" onClick={() => handleSortClick(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}>
+                <div className={`w-[120px] text-center mr-3 flex items-center justify-start group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}>
                     <Tooltip text="Sort by Importance">
                         <div className="flex items-center">
                             IMPORTANCE {getSortIcon(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}
                         </div>
                     </Tooltip>
                 </div>
-                <div className="flex-grow min-w-[150px] cursor-pointer hover:text-blue-500 flex items-center group" onClick={() => handleSortClick(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}>
+                <div className={`flex-grow min-w-[150px] flex items-center group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}>
                     <Tooltip text="Sort by Description">
                         <div className="flex items-center">
                             Task Description {getSortIcon(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}
@@ -454,14 +629,14 @@ const GlobalTaskListView: React.FC = () => {
                     <div className="w-28 md:w-32 text-center">
                         <span>Dependency</span>
                     </div>
-                    <div className="w-10 text-center cursor-pointer hover:text-blue-500 flex items-center justify-center group" onClick={() => handleSortClick(SortOption.CREATED_DATE_ASC, SortOption.CREATED_DATE_DESC)}>
+                    <div className={`w-10 text-center flex items-center justify-center group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.CREATED_DATE_ASC, SortOption.CREATED_DATE_DESC)}>
                         <Tooltip text="Date Created">
                             <div className="flex items-center">
                                 DC {getSortIcon(SortOption.CREATED_DATE_ASC, SortOption.CREATED_DATE_DESC)}
                             </div>
                         </Tooltip>
                     </div>
-                    <div className="w-32 text-center cursor-pointer hover:text-blue-500 flex items-center justify-center group" onClick={() => handleSortClick(SortOption.DUE_DATE_ASC, SortOption.DUE_DATE_DESC)}>
+                    <div className={`w-32 text-center flex items-center justify-center group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.DUE_DATE_ASC, SortOption.DUE_DATE_DESC)}>
                         <Tooltip text="Sort by Due Date">
                             <div className="flex items-center">
                                 Due Date {getSortIcon(SortOption.DUE_DATE_ASC, SortOption.DUE_DATE_DESC)}
@@ -489,6 +664,10 @@ const GlobalTaskListView: React.FC = () => {
                                     onRemove={removeTask}
                                     onCopyRequest={(t) => openModal('COPY_TASK', { task: t })}
                                     theme={theme}
+                                    isCustomSort={isDragEnabled}
+                                    onDragStart={handleDragStart}
+                                    onDragOver={handleDragOver}
+                                    onDrop={handleDrop}
                                 />
                             </div>
                         );

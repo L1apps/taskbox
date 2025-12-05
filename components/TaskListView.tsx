@@ -16,27 +16,113 @@ const TaskListView: React.FC = () => {
     addTask, 
     removeTask, 
     apiFetch, 
-    fetchData 
+    fetchData,
+    reorderListTasks,
+    globalViewPersistence 
   } = useTaskBox();
   
   const { openModal } = useModal();
+
+  // Local state for persistence override of this specific list
+  const [listPersistence, setListPersistence] = useState<boolean>(true);
 
   const [sort, setSort] = useState<SortOption>(SortOption.DEFAULT);
   const [showCompleted, setShowCompleted] = useState<boolean>(false);
   const [showFocusedOnly, setShowFocusedOnly] = useState<boolean>(false);
   const [dependencyMode, setDependencyMode] = useState<number>(0);
   
+  // Custom Sort State - Persisted per list via LocalStorage logic inside component
+  const [isCustomSortEnabled, setIsCustomSortEnabled] = useState(false);
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  
   const [localSearch, setLocalSearch] = React.useState('');
   const [warningMessage, setWarningMessage] = React.useState<string | null>(null);
 
-  // Reset view state when switching lists
+  // Initialize view state when switching lists, checking for persistence
   useEffect(() => {
-      setSort(SortOption.DEFAULT);
-      setShowCompleted(false);
-      setShowFocusedOnly(false);
-      setDependencyMode(0);
+      if (!activeList?.id) return;
+
+      // 1. Determine Persistence Setting for this List
+      const overrideKey = `taskbox-persistence-override-${activeList.id}`;
+      const storedOverride = localStorage.getItem(overrideKey);
+      
+      let shouldPersist = globalViewPersistence;
+      if (storedOverride !== null) {
+          shouldPersist = storedOverride === 'true';
+      }
+      setListPersistence(shouldPersist);
+
+      // 2. Load View State (if enabled) or Reset to Defaults
+      let initSort = SortOption.DEFAULT;
+      let initShowCompleted = false;
+      let initShowFocused = false;
+      let initDepMode = 0;
+      let initCustomSort = false;
+
+      if (shouldPersist) {
+          try {
+              const savedState = JSON.parse(localStorage.getItem(`taskbox-view-state-${activeList.id}`) || '{}');
+              if (savedState.sort) initSort = savedState.sort;
+              if (savedState.showCompleted !== undefined) initShowCompleted = savedState.showCompleted;
+              if (savedState.showFocusedOnly !== undefined) initShowFocused = savedState.showFocusedOnly;
+              if (savedState.dependencyMode !== undefined) initDepMode = savedState.dependencyMode;
+          } catch (e) {
+              console.error("Error loading view state", e);
+          }
+      }
+
+      // Custom sort is always persisted regardless of "Remember View" toggle (previous feature requirement)
+      const storedCustomSort = localStorage.getItem(`taskbox-custom-sort-${activeList.id}`);
+      if (storedCustomSort === 'true') initCustomSort = true;
+
+      setSort(initSort);
+      setShowCompleted(initShowCompleted);
+      setShowFocusedOnly(initShowFocused);
+      setDependencyMode(initDepMode);
+      setIsCustomSortEnabled(initCustomSort);
       setLocalSearch('');
-  }, [activeList?.id]);
+      setDraggedTask(null);
+      
+  }, [activeList?.id, globalViewPersistence]);
+
+  // Persist view state on changes if enabled
+  useEffect(() => {
+      if (!activeList?.id) return;
+      
+      if (listPersistence) {
+          const stateToSave = {
+              sort,
+              showCompleted,
+              showFocusedOnly,
+              dependencyMode
+          };
+          localStorage.setItem(`taskbox-view-state-${activeList.id}`, JSON.stringify(stateToSave));
+      }
+  }, [sort, showCompleted, showFocusedOnly, dependencyMode, activeList?.id, listPersistence]);
+  
+  const toggleCustomSort = () => {
+      if (!activeList) return;
+      const newValue = !isCustomSortEnabled;
+      setIsCustomSortEnabled(newValue);
+      localStorage.setItem(`taskbox-custom-sort-${activeList.id}`, String(newValue));
+  };
+
+  const toggleListPersistence = () => {
+      if (!activeList) return;
+      const newValue = !listPersistence;
+      setListPersistence(newValue);
+      // Store override
+      localStorage.setItem(`taskbox-persistence-override-${activeList.id}`, String(newValue));
+      
+      // If turning OFF, clear the saved state
+      if (!newValue) {
+          localStorage.removeItem(`taskbox-view-state-${activeList.id}`);
+      } else {
+          // If turning ON, save current state immediately
+          const stateToSave = { sort, showCompleted, showFocusedOnly, dependencyMode };
+          localStorage.setItem(`taskbox-view-state-${activeList.id}`, JSON.stringify(stateToSave));
+      }
+  };
 
   if (!activeList) {
       return <div className="p-16 text-center text-gray-500 flex flex-col justify-center h-full">Select a list or create one.</div>;
@@ -110,6 +196,47 @@ const TaskListView: React.FC = () => {
       }
       return result;
   };
+  
+  // HTML5 Drag and Drop Handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, task: Task) => {
+      setDraggedTask(task);
+      // Required for Firefox
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData("text/plain", String(task.id));
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault(); // Necessary to allow dropping
+      e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetTask: Task) => {
+      e.preventDefault();
+      if (!draggedTask || draggedTask.id === targetTask.id) return;
+
+      // Get current view of tasks (sorted by sortOrder)
+      const allTasksSorted = [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      
+      const sourceIndex = allTasksSorted.findIndex(t => t.id === draggedTask.id);
+      const targetIndex = allTasksSorted.findIndex(t => t.id === targetTask.id);
+
+      if (sourceIndex === -1 || targetIndex === -1) return;
+
+      // Remove source
+      const [removed] = allTasksSorted.splice(sourceIndex, 1);
+      // Insert at target
+      allTasksSorted.splice(targetIndex, 0, removed);
+
+      // Recalculate sortOrder for everyone
+      const updates = allTasksSorted.map((t, index) => ({
+          id: t.id,
+          sortOrder: index + 1
+      }));
+
+      // Optimistic update locally could be done here if needed, but we rely on fetch
+      await reorderListTasks(list.id, updates);
+      setDraggedTask(null);
+  };
 
   const sortedAndFilteredTasks = useMemo(() => {
     let filteredTasks = tasks.filter(task => showCompleted || !task.completed);
@@ -161,8 +288,13 @@ const TaskListView: React.FC = () => {
 
     const sortTasks = (taskList: Task[]) => {
         const isDependencySort = dependencyMode > 0;
+        
+        // If Custom Sort is Enabled, it overrides everything EXCEPT Dependency grouping anchors (if both active)
+        if (isCustomSortEnabled && dependencyMode === 0) {
+             return taskList.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        }
 
-        // If Dependency Mode is ON, force sorting to put Dependents first to act as group anchors
+        // If Dependency Mode is ON, force sorting to put Dependents first
         const sorted = taskList.sort((a, b) => {
             if (isDependencySort) {
                 const aDep = !!a.dependsOn;
@@ -170,6 +302,11 @@ const TaskListView: React.FC = () => {
                 if (aDep && !bDep) return -1; 
                 if (!aDep && bDep) return 1;
             }
+            
+            // If Custom Sort is on AND Dependency Mode is on, use Custom Sort as secondary
+             if (isCustomSortEnabled) {
+                 return (a.sortOrder || 0) - (b.sortOrder || 0);
+             }
 
             switch (sort) {
                 case SortOption.DESCRIPTION_ASC: return compareValues(a.description, b.description, 'string', 'asc');
@@ -189,6 +326,12 @@ const TaskListView: React.FC = () => {
         });
         return sorted;
     };
+    
+    // Logic: Custom Sort usually ignores Pinning to allow full manual control
+    // If Custom Sort is ON, we treat everything as one block
+    if (isCustomSortEnabled && dependencyMode === 0) {
+        return sortTasks([...filteredTasks]).map(task => ({ task, depth: 0 }));
+    }
 
     const sortedPinned = sortTasks([...pinnedTasks]);
     const sortedUnpinned = sortTasks([...unpinnedTasks]);
@@ -205,7 +348,7 @@ const TaskListView: React.FC = () => {
     }
 
     return grouped;
-  }, [tasks, sort, showCompleted, showFocusedOnly, dependencyMode, localSearch]);
+  }, [tasks, sort, showCompleted, showFocusedOnly, dependencyMode, localSearch, isCustomSortEnabled]);
 
   const completionStats = useMemo(() => {
     if (tasks.length === 0) return { percent: 0, completed: 0, total: 0 };
@@ -224,12 +367,14 @@ const TaskListView: React.FC = () => {
   }, [tasks]);
 
   const handleSortClick = (optionAsc: SortOption, optionDesc: SortOption) => {
+      if (isCustomSortEnabled) return; // Disable sort clicking if custom sort is active
       if (sort === optionAsc) setSort(optionDesc);
       else if (sort === optionDesc) setSort(SortOption.DEFAULT);
       else setSort(optionAsc);
   };
 
   const getSortIcon = (optionAsc: SortOption, optionDesc: SortOption) => {
+      if (isCustomSortEnabled) return null;
       if (sort === optionAsc) return <span className="ml-1 text-xs">▲</span>;
       if (sort === optionDesc) return <span className="ml-1 text-xs">▼</span>;
       return <span className="ml-1 text-xs opacity-0 group-hover:opacity-50">▲▼</span>;
@@ -258,6 +403,9 @@ const TaskListView: React.FC = () => {
       if (dependencyMode === 1) return "Show only Dependency Groups";
       return "Hide only Dependency Groups";
   };
+
+  // Safe Check: Disable drag if searching to avoid re-indexing filtered results incorrectly
+  const isDragEnabled = isCustomSortEnabled && !localSearch;
 
   return (
     <div className="p-4 sm:p-6 flex flex-col h-full relative print:block print:h-auto print:overflow-visible">
@@ -317,6 +465,48 @@ const TaskListView: React.FC = () => {
 
           <div className="flex items-center space-x-2 flex-grow sm:flex-grow-0 sm:ml-auto">
               
+              {/* List Persistence Toggle */}
+              <Tooltip text={listPersistence ? "Disable Saved View" : "Enable Saved View"} debugLabel="Persistence Toggle">
+                  <button
+                      onClick={toggleListPersistence}
+                      className={`p-2 rounded-md border transition-colors ${listPersistence 
+                          ? (isOrange ? 'bg-orange-900/50 border-orange-500 text-orange-400' : 'bg-blue-100 border-blue-400 text-blue-600 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-400') 
+                          : (isOrange ? 'border-gray-600 hover:bg-gray-800 text-gray-500' : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-500')}`}
+                  >
+                     {listPersistence ? (
+                         // Eye Icon
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                         </svg>
+                     ) : (
+                         // Eye Off Icon
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                            <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.064 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                         </svg>
+                     )}
+                  </button>
+              </Tooltip>
+
+              {/* Custom Sort Toggle */}
+              <Tooltip text={isCustomSortEnabled ? "Disable Custom Order" : "Enable Custom Order"} debugLabel="Custom Sort Toggle">
+                  <button
+                      onClick={toggleCustomSort}
+                      className={`p-2 rounded-md border transition-colors ${isCustomSortEnabled 
+                          ? (isOrange ? 'bg-orange-900/50 border-orange-500 text-orange-400' : 'bg-blue-100 border-blue-400 text-blue-600 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-400') 
+                          : (isOrange ? 'border-gray-600 hover:bg-gray-800 text-gray-500' : 'border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-500')}`}
+                  >
+                     {/* List inside a box icon */}
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <line x1="7" y1="8" x2="17" y2="8" />
+                        <line x1="7" y1="12" x2="17" y2="12" />
+                        <line x1="7" y1="16" x2="17" y2="16" />
+                     </svg>
+                  </button>
+              </Tooltip>
+
               <Tooltip text={showFocusedOnly ? "Hide only Focused Tasks" : "Show only Focused Tasks"} debugLabel="Focus Filter Toggle">
                   <button
                       onClick={() => setShowFocusedOnly(!showFocusedOnly)}
@@ -387,7 +577,7 @@ const TaskListView: React.FC = () => {
       {/* Sortable Header Row */}
       <div className={`hidden md:flex items-center px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 mb-2 ${headerTextColor} no-print`}>
           {/* Matches TaskItem Left Group: Checkbox + Icons (~120px) */}
-          <div className="w-[120px] text-center mr-3 cursor-pointer hover:text-blue-500 flex items-center justify-start group" onClick={() => handleSortClick(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}>
+          <div className={`w-[120px] text-center mr-3 flex items-center justify-start group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}>
               <Tooltip text="Sort by Importance">
                   <div className="flex items-center">
                       IMPORTANCE {getSortIcon(SortOption.IMPORTANCE_ASC, SortOption.IMPORTANCE_DESC)}
@@ -395,7 +585,7 @@ const TaskListView: React.FC = () => {
               </Tooltip>
           </div>
           
-          <div className="flex-grow min-w-[150px] cursor-pointer hover:text-blue-500 flex items-center group" onClick={() => handleSortClick(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}>
+          <div className={`flex-grow min-w-[150px] flex items-center group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}>
               <Tooltip text="Sort by Description">
                   <div className="flex items-center">
                       Task Description {getSortIcon(SortOption.DESCRIPTION_ASC, SortOption.DESCRIPTION_DESC)}
@@ -408,14 +598,14 @@ const TaskListView: React.FC = () => {
               <div className="w-28 md:w-32 text-center">
                   <span>Dependency</span>
               </div>
-              <div className="w-10 text-center cursor-pointer hover:text-blue-500 flex items-center justify-center group" onClick={() => handleSortClick(SortOption.CREATED_DATE_ASC, SortOption.CREATED_DATE_DESC)}>
+              <div className={`w-10 text-center flex items-center justify-center group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.CREATED_DATE_ASC, SortOption.CREATED_DATE_DESC)}>
                   <Tooltip text="Date Created">
                       <div className="flex items-center">
                           DC {getSortIcon(SortOption.CREATED_DATE_ASC, SortOption.CREATED_DATE_DESC)}
                       </div>
                   </Tooltip>
               </div>
-              <div className="w-32 text-center cursor-pointer hover:text-blue-500 flex items-center justify-center group" onClick={() => handleSortClick(SortOption.DUE_DATE_ASC, SortOption.DUE_DATE_DESC)}>
+              <div className={`w-32 text-center flex items-center justify-center group ${isCustomSortEnabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:text-blue-500'}`} onClick={() => handleSortClick(SortOption.DUE_DATE_ASC, SortOption.DUE_DATE_DESC)}>
                   <Tooltip text="Sort by Due Date">
                       <div className="flex items-center">
                           Due Date {getSortIcon(SortOption.DUE_DATE_ASC, SortOption.DUE_DATE_DESC)}
@@ -439,6 +629,10 @@ const TaskListView: React.FC = () => {
                     theme={theme}
                     readOnly={isReadOnly}
                     canDelete={canDelete}
+                    isCustomSort={isDragEnabled && dependencyMode === 0}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
                   />
               </div>
               );

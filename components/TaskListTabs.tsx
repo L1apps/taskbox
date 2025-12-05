@@ -35,47 +35,70 @@ const ListTreeItem: React.FC<ListTreeItemProps> = React.memo(({
     }, [allLists, list.id, sortDesc]);
 
     const isExpanded = expandedIds.has(list.id);
-    
-    const isMaster = list.parentId === null;
-    
     const isActive = activeListId === list.id;
-    const baseClass = `flex items-center px-2 py-2 rounded-md cursor-pointer transition-colors duration-200 select-none mb-1 group relative`;
-    const activeClass = isOrange 
-        ? 'bg-orange-900/40 text-orange-500' 
-        : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400';
-    const inactiveClass = isOrange 
-        ? 'text-gray-400 hover:bg-white/10' 
-        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700';
+    
+    // "Ghost" lists have no permissions. They are purely structural placeholders.
+    const isGhost = list.currentUserPermission === 'NONE';
+    
+    // Styling
+    const baseClass = `flex items-center px-2 py-2 rounded-md transition-colors duration-200 select-none mb-1 group relative ${isGhost ? 'cursor-default opacity-60' : 'cursor-pointer'}`;
+    
+    let stateClass = '';
+    if (isActive) {
+        stateClass = isOrange 
+            ? 'bg-orange-900/40 text-orange-500' 
+            : 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400';
+    } else {
+        stateClass = isOrange 
+            ? 'text-gray-400 hover:bg-white/10' 
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700';
+    }
+    
+    if (isGhost) {
+        stateClass = isOrange ? 'text-gray-600' : 'text-gray-400 dark:text-gray-600';
+    }
 
     return (
         <div style={{ marginLeft: `${depth * 12}px` }}>
             <div 
-                className={`${baseClass} ${isActive ? activeClass : inactiveClass}`}
-                onClick={() => onSelect(list.id)}
+                className={`${baseClass} ${stateClass}`}
+                onClick={() => !isGhost && onSelect(list.id)}
             >
                 <div className="flex items-center min-w-0 overflow-hidden w-full">
+                    {/* Expand/Collapse Arrow */}
                     {children.length > 0 ? (
-                        <button onClick={(e) => { e.stopPropagation(); toggleExpand(list.id); }} className="mr-1 p-0.5 rounded hover:bg-gray-300 dark:hover:bg-gray-600 shrink-0">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(list.id); }} 
+                            className="mr-1 p-0.5 rounded hover:bg-gray-300 dark:hover:bg-gray-600 shrink-0"
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                             </svg>
                         </button>
                     ) : <span className="w-4 mr-1 shrink-0"></span>}
                     
-                    {isMaster ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 shrink-0 ${isOrange ? 'text-orange-400' : 'text-blue-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    {/* Folder/List Icon */}
+                    {isGhost ? (
+                        // Lock Icon for Ghost
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                     ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 shrink-0 ${isOrange ? 'text-orange-300' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 mr-2 shrink-0 ${isActive ? (isOrange ? 'text-orange-400' : 'text-blue-400') : (isOrange ? 'text-orange-300' : 'text-gray-400')}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            {/* Simple Logic: If it has children, look like a folder (Open/Closed), else look like a list */}
+                            {children.length > 0 ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            )}
                         </svg>
                     )}
                     
                     <span className="truncate text-sm font-medium" title={list.title}>{list.title}</span>
                 </div>
                 
-                {(list.pinned || isActive) && (
+                {/* Pin Action (Only for non-ghosts) */}
+                {!isGhost && (list.pinned || isActive) && (
                      <button 
                         onClick={(e) => { e.stopPropagation(); onPin(list.id, !list.pinned); }}
                         className={`ml-1 shrink-0 p-1 rounded hover:bg-gray-300 dark:hover:bg-gray-600 ${list.pinned ? (isOrange ? 'text-orange-500' : 'text-blue-500') : 'text-gray-400 opacity-0 group-hover:opacity-100'}`}
@@ -117,7 +140,9 @@ const TaskListTabs: React.FC = () => {
         setSpecialView,
         specialView,
         apiFetch, 
-        fetchData
+        fetchData,
+        sidebarAccordionMode,
+        setSidebarAccordionMode
     } = useTaskBox();
     
     const { openModal } = useModal();
@@ -127,16 +152,70 @@ const TaskListTabs: React.FC = () => {
     const toggleExpand = useCallback((id: number) => {
         setExpandedIds(prev => {
             const next = new Set(prev);
+            
+            // Accordion Logic: If Opening, close siblings
+            if (!next.has(id) && sidebarAccordionMode) {
+                const list = lists.find(l => l.id === id);
+                if (list) {
+                    const siblings = lists.filter(l => l.parentId === list.parentId && l.id !== id);
+                    siblings.forEach(s => next.delete(s.id));
+                }
+            }
+
             if (next.has(id)) next.delete(id);
             else next.add(id);
             return next;
         });
-    }, []);
+    }, [sidebarAccordionMode, lists]);
     
-    const handleToggleExpandAll = () => {
-        if (expandedIds.size > 0) {
-            setExpandedIds(new Set());
-        } else {
+    const expandActivePath = useCallback(() => {
+        if (activeListId) {
+            const active = lists.find(l => l.id === activeListId);
+            const pathIds = new Set<number>();
+            
+            // 1. Build path upwards (parents must be open)
+            let curr = active;
+            let safetyCounter = 0;
+            while (curr && curr.parentId && safetyCounter < 10) {
+                const pid = curr.parentId;
+                pathIds.add(pid);
+                // Capture pid in const to avoid TS closure issues
+                curr = lists.find(l => l.id === pid);
+                safetyCounter++;
+            }
+            
+            // 2. Apply expansion logic
+            setExpandedIds(prev => {
+                if (sidebarAccordionMode) {
+                    // Accordion Mode: 
+                    // Open the path AND the active list itself if it has children (Force Expand active item)
+                    const hasChildren = lists.some(c => c.parentId === activeListId);
+                    if (hasChildren) pathIds.add(activeListId);
+                    
+                    return pathIds;
+                } else {
+                    // Standard Mode: Just merge path into existing
+                    const next = new Set(prev);
+                    pathIds.forEach(id => next.add(id));
+                    return next;
+                }
+            });
+        }
+    }, [activeListId, lists, sidebarAccordionMode]);
+
+    const handleSelect = (id: number) => {
+        setActiveListId(id);
+        // The expansion logic is handled reactively by expandActivePath via useEffect
+        // However, if we click an already active list that is collapsed, we might want to toggle it?
+        // Current logic in `expandActivePath` enforces open state for active list if it has children in accordion mode.
+        // So clicking it should open it.
+    };
+
+    const handleCycleMode = () => {
+        if (sidebarAccordionMode) {
+            // State: Accordion -> Switch to Manual Expand All
+            setSidebarAccordionMode(false);
+            // Expand All
             const parents = new Set<number>();
             lists.forEach(l => {
                 if (lists.some(c => c.parentId === l.id)) {
@@ -144,28 +223,21 @@ const TaskListTabs: React.FC = () => {
                 }
             });
             setExpandedIds(parents);
+        } else if (expandedIds.size > 0) {
+            // State: Manual Expanded -> Switch to Manual Collapse All
+            // Mode stays false (Manual)
+            setExpandedIds(new Set());
+        } else {
+            // State: Manual Collapsed -> Switch to Accordion
+            setSidebarAccordionMode(true);
+            expandActivePath(); // Ensure active list stays visible
         }
     };
 
-    // Auto-expand parents of active list
+    // Auto-expand parents of active list on mount/change/mode change
     useEffect(() => {
-        if (activeListId) {
-            const active = lists.find(l => l.id === activeListId);
-            if (active && active.parentId) {
-                setExpandedIds(prev => {
-                    const next = new Set(prev);
-                    let curr = active;
-                    while (curr.parentId) {
-                        next.add(curr.parentId);
-                        const parent = lists.find(l => l.id === curr.parentId);
-                        if (!parent) break;
-                        curr = parent;
-                    }
-                    return next;
-                });
-            }
-        }
-    }, [activeListId, lists]);
+        expandActivePath();
+    }, [expandActivePath]);
 
     const handlePin = useCallback(async (listId: number, pinned: boolean) => {
         try {
@@ -189,7 +261,12 @@ const TaskListTabs: React.FC = () => {
     };
 
     const rootLists = useMemo(() => {
-        const roots = lists.filter(l => l.parentId === null);
+        // A list is a root if it has no parentId, OR if its parentId cannot be found in the current set (Orphan)
+        const roots = lists.filter(l => {
+            if (l.parentId === null) return true;
+            return !lists.some(p => p.id === l.parentId);
+        });
+        
         return roots.sort((a, b) => {
              // Priority: Pinned > Alpha
              if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
@@ -197,22 +274,45 @@ const TaskListTabs: React.FC = () => {
         });
     }, [lists, sortDesc]);
     
+    const getModeIcon = () => {
+        if (sidebarAccordionMode) {
+            // Accordion Icon (Menu/List style)
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                </svg>
+            );
+        }
+        if (expandedIds.size > 0) {
+            // Expanded Icon (Arrows pointing in/collapse)
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+            );
+        }
+        // Collapsed Icon (Arrows pointing out/expand)
+        return (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+        );
+    };
+
+    const getModeTooltip = () => {
+        if (sidebarAccordionMode) return "Mode: Accordion (Click to Expand All)";
+        if (expandedIds.size > 0) return "Expanded (Click to Collapse All)";
+        return "Collapsed (Click for Accordion Mode)";
+    };
+    
     return (
         <div className="flex flex-col h-full overflow-hidden">
              <div className="p-4 shrink-0 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
                 <h2 className={`font-semibold tracking-wider ${isOrange ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>LISTS</h2>
                 <div className="flex items-center space-x-1">
-                    <Tooltip text={expandedIds.size > 0 ? "Collapse All" : "Expand All"} debugLabel="Sidebar Expand/Collapse All">
-                        <button onClick={handleToggleExpandAll} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${isOrange ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {expandedIds.size > 0 ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                                </svg>
-                            )}
+                    <Tooltip text={getModeTooltip()} debugLabel="Sidebar Mode Toggle">
+                        <button onClick={handleCycleMode} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${sidebarAccordionMode ? (isOrange ? 'text-orange-500' : 'text-blue-500') : (isOrange ? 'text-gray-400' : 'text-gray-500')}`}>
+                            {getModeIcon()}
                         </button>
                     </Tooltip>
                     <Tooltip text={sortDesc ? "Sort Z-A" : "Sort A-Z"} debugLabel="Sidebar Sort Toggle">
@@ -312,6 +412,12 @@ const TaskListTabs: React.FC = () => {
                          </svg>
                          Pinned Tasks
                      </div>
+                     <div className={specialViewBaseClass + ' ' + getSpecialViewClass('due_tasks')} onClick={() => setSpecialView('due_tasks')}>
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                         </svg>
+                         All Due Tasks
+                     </div>
                      <div className={specialViewBaseClass + ' ' + getSpecialViewClass('dependencies')} onClick={() => setSpecialView('dependencies')}>
                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -331,7 +437,7 @@ const TaskListTabs: React.FC = () => {
                             allLists={lists} 
                             activeListId={activeListId} 
                             depth={0} 
-                            onSelect={setActiveListId} 
+                            onSelect={handleSelect} 
                             theme={theme}
                             expandedIds={expandedIds}
                             toggleExpand={toggleExpand}

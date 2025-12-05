@@ -13,16 +13,20 @@ TaskBox provides a clean interface for organizing tasks, lists, and workflows lo
 
 <h2>Key Features</h2>
 <ul>
+ 	<li><strong>Persistent State:</strong> Remembers your last active list on reload.</li>
+ 	<li><strong>Global View Persistence:</strong> Settings for Sort/Filter are remembered for all lists by default. Manage in User Settings.</li>
+ 	<li><strong>Custom Ordering:</strong> Manual Up/Down sorting for tasks.</li>
  	<li><strong>Focused List:</strong> A dedicated, always-accessible list for your immediate priorities.</li>
  	<li><strong>Global Views:</strong> View tasks from all lists in one place (File Cabinet) with list filtering.</li>
  	<li><strong>Sidebar Toolbar:</strong> Centralized control for list actions (Rename, Share, Move, Merge, Delete).</li>
+    <li><strong>Sidebar Modes:</strong> Toggle between Accordion (auto-close), Expand All, and Collapse All modes.</li>
  	<li><strong>Nested Lists:</strong> 3-Tier hierarchical structure (Top Level → Master List → Sublist → Nested Sublist).</li>
  	<li><strong>Merge Lists:</strong> Combine lists into one.</li>
  	<li><strong>List Sorting &amp; Pinning:</strong> Sort alphabetically and pin important lists.</li>
  	<li><strong>Copy/Move Tasks:</strong> Move or copy tasks between lists.</li>
  	<li><strong>Duplicate Prevention:</strong> Paste/import automatically filters duplicates.</li>
  	<li><strong>Multi-User Support:</strong> Secure registration and login system.</li>
- 	<li><strong>Shared Permissions:</strong> Granular control (View Only, Modify, Full Access).</li>
+ 	<li><strong>Shared Permissions:</strong> Granular control (View Only, Modify, Full Access) + Ownership Transfer.</li>
  	<li><strong>Admin Panel:</strong> User management, logs, maintenance tools.</li>
  	<li><strong>Database Backup &amp; Restore:</strong> Download or upload full SQLite database.</li>
  	<li><strong>Task Management:</strong> Pin tasks, set dependencies, mark importance levels.</li>
@@ -50,7 +54,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 </ol>
 <h3>2. Permissions</h3>
 <ul>
- 	<li><strong>Owner:</strong> Can move, merge, delete, rename, or share the list.</li>
+ 	<li><strong>Owner:</strong> Can move, merge, delete, rename, transfer, or share the list.</li>
  	<li><strong>Shared User:</strong> Can interact based on assigned role:
         <ul>
             <li><strong>View Only:</strong> Read-only access.</li>
@@ -68,7 +72,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 <h3>Focused List &amp; Global Views</h3>
 <ul>
  	<li><strong>Focused List (Lightning Icon):</strong> A permanent list at the top of the sidebar. Toggle the lightning icon on any task to add it here.</li>
- 	<li><strong>Global Views (File Cabinet):</strong> View tasks across ALL lists. Filter by All Active, High Importance, Pinned, or Dependencies. Use "Filter Lists" to narrow down the view.</li>
+ 	<li><strong>Global Views (File Cabinet):</strong> View tasks across ALL lists. Filter by All Active, High Importance, Pinned, or Dependencies. Use "Filter Lists" to narrow down the view. Includes "All Due Tasks".</li>
  	<li><strong>Global Search:</strong> Persistent search bar in the header searches all lists.</li>
 </ul>
 <h3>Task Management</h3>
@@ -76,6 +80,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
  	<li><strong>Add Task:</strong> Type at bottom of list.</li>
  	<li><strong>Edit:</strong> Click task text.</li>
  	<li><strong>Complete:</strong> Tasks move down or hide via the checkbox icon toggle.</li>
+ 	<li><strong>Custom Order:</strong> Toggle the "Box List" icon to enable Up/Down arrows for manual sorting.</li>
  	<li><strong>Importance:</strong> Low → Medium → High (Flag Icon).</li>
  	<li><strong>Pin:</strong> Keeps tasks at top.</li>
  	<li><strong>Dependencies:</strong> Tasks cannot complete until prerequisite is finished. Automatically grouped in lists. Limited to 5 levels deep.</li>
@@ -84,21 +89,23 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 </ul>
 <h3>List Actions</h3>
 <ul>
- 	<li><strong>Rename</strong></li>
+    <li><strong>Sidebar Modes:</strong> Cycle through Accordion, Expand All, and Collapse All modes using the sidebar toolbar button.</li>
+ 	<li><strong>Rename:</strong> (Max 20 chars).</li>
  	<li><strong>Move:</strong> Valid options only; containers cannot be moved inside lists.</li>
  	<li><strong>Merge:</strong> Combines lists and deletes the source.</li>
- 	<li><strong>Share:</strong> Assign permission levels to other users.</li>
+ 	<li><strong>Share:</strong> Assign permission levels to other users or Transfer Ownership. Admins can force transfer.</li>
+    <li><strong>View Settings:</strong> Use the "Eye" icon in the list toolbar to toggle view persistence for that list. Manage global defaults in User Settings.</li>
 </ul>
 <h3>Copy / Paste &amp; Import</h3>
 <ul>
  	<li><strong>Clipboard Modal:</strong>
 <ul>
- 	<li>Paste text to create tasks.</li>
+ 	<li>Paste text to create tasks (Limit: 20 lines).</li>
  	<li>Copy active list (with metadata or descriptions only).</li>
  	<li>Load Active List for copying.</li>
 </ul>
 </li>
- 	<li><strong>Import:</strong> CSV/TXT with supported headers. (Disabled in Global Views).</li>
+ 	<li><strong>Import:</strong> CSV/TXT with supported headers. (Disabled in Global Views). Max file size 5MB.</li>
  	<li><strong>Export:</strong> CSV/TXT (disabled for empty lists).</li>
 </ul>
 <h3>Admin Panel</h3>
@@ -129,8 +136,8 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 <h3>Technical Limitations</h3>
 <ul>
     <li><strong>User Limit:</strong> Max 5 Users.</li>
-    <li><strong>List Limits (Per User):</strong> 20 Root Lists, 10 Nested Lists per container.</li>
-    <li><strong>Task Limits (Per User):</strong> 50 Tasks per list, 5,000 Tasks total.</li>
+    <li><strong>List Limits (Per User):</strong> 20 Root Lists, 10 Nested Lists per container, 20 Chars per Title.</li>
+    <li><strong>Task Limits (Per User):</strong> 50 Tasks per list, 5,000 Tasks total, 102 Chars per Task Description.</li>
  	<li><strong>Max Depth:</strong> 3 Levels (Master → Sublist → Nested Sublist).</li>
  	<li><strong>Container Rule:</strong> Lists with sublists cannot hold tasks.</li>
  	<li><strong>Dependency Depth:</strong> Max 5 levels.</li>
@@ -211,6 +218,43 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 <h2>Version History</h2>
 [expand title="<strong><em>Click to view full TaskBox changelog</em></strong>"]
 <ul>
+    <li><strong>3.10.6 – 2025-11-02</strong>
+<ul>
+    <li>Added Sidebar Accordion Mode.</li>
+    <li>Added Global View Persistence Settings.</li>
+    <li>Added Admin Take Ownership override.</li>
+    <li>Fixed tooltip clipping in Stats.</li>
+</ul>
+</li>
+    <li><strong>3.10.5 – 2025-10-30</strong>
+<ul>
+    <li>Added "All Due Tasks" View.</li>
+    <li>Added Stats Export to CSV.</li>
+    <li>Improved Task text wrapping.</li>
+    <li>UI Refinements (Add Task Clear button, Stats layout).</li>
+</ul>
+</li>
+    <li><strong>3.10.2 – 2025-10-28</strong>
+<ul>
+    <li>Fixed Docker networking issue (binding to 0.0.0.0).</li>
+</ul>
+</li>
+    <li><strong>3.10.1 – 2025-10-27</strong>
+<ul>
+    <li>Security hardening for Database Restore (Integrity Check).</li>
+    <li>Added File Size/Binary checks for Import.</li>
+    <li>Strict 102 char limit for Task descriptions with text wrapping.</li>
+    <li>Limited Paste functionality to 20 tasks max.</li>
+</ul>
+</li>
+    <li><strong>3.10.0 – 2025-10-25</strong>
+<ul>
+ 	<li>Persistent active list on reload.</li>
+ 	<li>Custom Task Ordering (Up/Down).</li>
+ 	<li>List Ownership Transfer.</li>
+ 	<li>List Title limit (20 chars).</li>
+</ul>
+</li>
     <li><strong>3.9.15 – 2025-10-20</strong>
 <ul>
  	<li>Implemented limits: Max 5 users, Max 20 Root Lists, Max 10 Sublists, Max 50 Tasks/List, Max 5000 Total Tasks.</li>
@@ -263,13 +307,14 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
  	<li><strong>3.9.8 – 2025-10-02</strong>
 <ul>
  	<li>Added permanent "Focused" list.</li>
- 	<li>Added Focus Toggle (Target Icon) to tasks.</li>
+ 	<li>Added Task Focus Toggle (Target Icon) to tasks.</li>
  	<li>Global Views now exclude completed tasks by default.</li>
 </ul>
 </li>
  	<li><strong>3.9.7 – 2025-09-30</strong>
 <ul>
  	<li>Added Global Views ("File Cabinet") for All Tasks, Pinned, etc.</li>
+ 	<li>Hierarchy Controls: Visual nesting limit indicators.</li>
 </ul>
 </li>
  	<li><strong>3.9.6 – 2025-09-28</strong>

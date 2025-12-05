@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import Modal from './Modal';
 import type { TaskList, Theme } from '../types';
+import Tooltip from './Tooltip';
 
 interface StatsModalProps {
   onClose: () => void;
@@ -10,19 +11,6 @@ interface StatsModalProps {
 }
 
 type SortField = 'title' | 'total' | 'overdue' | 'completionPercentage';
-
-const StatCard: React.FC<{ label: string; value: string | number; className?: string; theme: Theme }> = ({ label, value, className = '', theme }) => {
-    // Explicitly force text color for Orange theme to ensure visibility against dark bg
-    const labelColor = theme === 'orange' ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400';
-    const valueColor = theme === 'orange' ? 'text-gray-100' : 'text-gray-800 dark:text-white';
-    
-    return (
-      <div className={`p-4 rounded-lg ${className}`}>
-        <div className={`text-sm ${labelColor}`}>{label}</div>
-        <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
-      </div>
-    );
-};
 
 const ProgressBar: React.FC<{ percentage: number; theme: Theme }> = ({ percentage, theme }) => {
     const isOrange = theme === 'orange';
@@ -37,8 +25,9 @@ const ProgressBar: React.FC<{ percentage: number; theme: Theme }> = ({ percentag
 
 const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
   const isOrange = theme === 'orange';
-  const cardBg = isOrange ? 'bg-gray-800' : 'bg-gray-100 dark:bg-gray-700';
   const headerTextColor = isOrange ? 'text-gray-100' : 'text-gray-800 dark:text-gray-100';
+  const statsLabelColor = isOrange ? 'text-gray-400' : 'text-gray-600 dark:text-gray-400';
+  const statsValueColor = isOrange ? 'text-gray-100' : 'text-gray-800 dark:text-white';
 
   const [sortField, setSortField] = useState<SortField>('completionPercentage');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -125,73 +114,122 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, lists, theme }) => {
       return <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
   };
 
+  const handleExportStats = () => {
+      const rows = [];
+      // Overall Section
+      rows.push(['Overall Statistics']);
+      rows.push(['Total Lists', stats.totalLists]);
+      rows.push(['Total Tasks', stats.totalTasks]);
+      rows.push(['Completed Tasks', stats.completedTasks]);
+      rows.push(['Incomplete Tasks', stats.incompleteTasks]);
+      rows.push(['Overdue Tasks', stats.overdueTasks]);
+      rows.push(['Overall Completion', `${stats.overallCompletion}%`]);
+      rows.push([]); // Empty line
+
+      // Per List Section
+      rows.push(['Per-List Breakdown']);
+      rows.push(['List Title', 'Total Tasks', 'Overdue', 'Completion %']);
+      stats.perListStats.forEach(l => {
+          rows.push([`"${l.title}"`, l.total, l.overdue, `${l.completionPercentage}%`]);
+      });
+
+      const csvContent = rows.map(e => e.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'taskbox_statistics.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
+  const StatRow = ({ label, value }: { label: string, value: string | number }) => (
+      <div className="flex justify-between items-center py-1 border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <span className={`font-bold ${statsLabelColor}`}>{label}</span>
+          <span className={`font-mono font-bold ${statsValueColor}`}>{value}</span>
+      </div>
+  );
+
   return (
-    <Modal title="Task Statistics" onClose={onClose} theme={theme}>
-      <div className="space-y-6 text-sm max-h-[80vh] overflow-y-auto pr-2">
-        <div>
-          <h3 className={`text-lg font-semibold mb-3 ${headerTextColor}`}>Overall Statistics</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <StatCard label="Total Lists" value={stats.totalLists} className={cardBg} theme={theme} />
-            <StatCard label="Total Tasks" value={stats.totalTasks} className={cardBg} theme={theme} />
-            <StatCard label="Completed Tasks" value={stats.completedTasks} className={cardBg} theme={theme} />
-            <StatCard label="Incomplete Tasks" value={stats.incompleteTasks} className={cardBg} theme={theme} />
-            <StatCard label="Overdue Tasks" value={stats.overdueTasks} className={`${cardBg} ${stats.overdueTasks > 0 ? (isOrange ? 'text-orange-400' : 'text-red-500') : ''}`} theme={theme} />
-            <div className={`p-4 rounded-lg col-span-2 sm:col-span-1 ${cardBg}`}>
-                <div className={`text-sm ${isOrange ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>Completion Rate</div>
-                <div className={`text-2xl font-bold mb-2 ${isOrange ? 'text-gray-100' : 'text-gray-800 dark:text-white'}`}>{stats.overallCompletion}%</div>
+    <Modal title="Task Statistics" onClose={onClose} theme={theme} maxWidth="max-w-3xl">
+        <div className="space-y-6 text-sm max-h-[80vh] overflow-y-auto pr-2">
+            <div className="relative">
+            <div className="flex justify-between items-center mb-3">
+                <h3 className={`text-lg font-semibold ${headerTextColor}`}>Overall Statistics</h3>
+                <Tooltip text="Download Statistics (CSV)" align="right">
+                    <button onClick={handleExportStats} className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${isOrange ? 'text-green-500' : 'text-green-600'}`}>
+                        {/* Excel-like / Table icon */}
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </button>
+                </Tooltip>
+            </div>
+            
+            <div className={`p-4 rounded-lg ${isOrange ? 'bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'} shadow-sm`}>
+                <StatRow label="Total Lists" value={stats.totalLists} />
+                <StatRow label="Total Tasks" value={stats.totalTasks} />
+                <StatRow label="Completed Tasks" value={stats.completedTasks} />
+                <StatRow label="Incomplete Tasks" value={stats.incompleteTasks} />
+                <StatRow label="Overdue Tasks" value={stats.overdueTasks} />
+                <div className="flex justify-between items-center py-2">
+                    <span className={`font-bold ${statsLabelColor}`}>Completion Rate</span>
+                    <span className={`font-mono font-bold ${statsValueColor}`}>{stats.overallCompletion}%</span>
+                </div>
                 <ProgressBar percentage={stats.overallCompletion} theme={theme} />
             </div>
-          </div>
-        </div>
-        
-        {stats.perListStats.length > 0 ? (
-          <div className="pt-4 border-t dark:border-gray-700">
-            <h3 className={`text-lg font-semibold mb-3 ${headerTextColor}`}>Per-List Breakdown</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 cursor-pointer select-none">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('title')}>
-                        List Title <SortIcon field="title" />
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-center hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('total')}>
-                        Total Tasks <SortIcon field="total" />
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-center hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('overdue')}>
-                        Overdue <SortIcon field="overdue" />
-                    </th>
-                    <th scope="col" className="px-4 py-3 hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('completionPercentage')}>
-                        Completion <SortIcon field="completionPercentage" />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.perListStats.map(listStat => (
-                    <tr key={listStat.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                      <td className={`px-4 py-3 font-medium whitespace-nowrap ${isOrange ? 'text-gray-100' : 'text-gray-900 dark:text-white'}`}>{listStat.title}</td>
-                      <td className={`px-4 py-3 text-center ${isOrange ? 'text-gray-300' : ''}`}>{listStat.total}</td>
-                      <td className={`px-4 py-3 text-center font-semibold ${listStat.overdue > 0 ? (isOrange ? 'text-orange-400' : 'text-red-500') : (isOrange ? 'text-gray-300' : '')}`}>{listStat.overdue}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center space-x-2">
-                           <div className="w-full">
-                             <ProgressBar percentage={listStat.completionPercentage} theme={theme} />
-                           </div>
-                           <span className="w-10 text-right text-gray-500 dark:text-gray-400">{listStat.completionPercentage}%</span>
-                        </div>
-                      </td>
+            </div>
+            
+            {stats.perListStats.length > 0 ? (
+            <div className="pt-4 border-t dark:border-gray-700">
+                <h3 className={`text-lg font-semibold mb-3 ${headerTextColor}`}>Per-List Breakdown</h3>
+                <div className="">
+                <table className="w-full text-left">
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 cursor-pointer select-none">
+                    <tr>
+                        <th scope="col" className="px-4 py-3 hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('title')}>
+                            List Title <SortIcon field="title" />
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-center hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('total')}>
+                            Total Tasks <SortIcon field="total" />
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-center hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('overdue')}>
+                            Overdue <SortIcon field="overdue" />
+                        </th>
+                        <th scope="col" className="px-4 py-3 hover:bg-gray-200 dark:hover:bg-gray-600" onClick={() => handleSort('completionPercentage')}>
+                            Completion <SortIcon field="completionPercentage" />
+                        </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                    {stats.perListStats.map(listStat => (
+                        <tr key={listStat.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        <td className={`px-4 py-3 font-medium whitespace-nowrap ${isOrange ? 'text-gray-100' : 'text-gray-900 dark:text-white'}`}>{listStat.title}</td>
+                        <td className={`px-4 py-3 text-center ${isOrange ? 'text-gray-300' : ''}`}>{listStat.total}</td>
+                        <td className={`px-4 py-3 text-center font-semibold ${listStat.overdue > 0 ? (isOrange ? 'text-orange-400' : 'text-red-500') : (isOrange ? 'text-gray-300' : '')}`}>{listStat.overdue}</td>
+                        <td className="px-4 py-3">
+                            <div className="flex items-center space-x-2">
+                            <div className="w-full">
+                                <ProgressBar percentage={listStat.completionPercentage} theme={theme} />
+                            </div>
+                            <span className="w-10 text-right text-gray-500 dark:text-gray-400">{listStat.completionPercentage}%</span>
+                            </div>
+                        </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
+                <p className={`text-xs mt-2 italic font-bold ${isOrange ? 'text-gray-400' : 'text-gray-500'}`}>* Only lists containing tasks are included in the breakdown.</p>
             </div>
-            <p className={`text-xs mt-2 italic font-bold ${isOrange ? 'text-gray-400' : 'text-gray-500'}`}>* Only lists containing tasks are included in the breakdown. Sorted by completion.</p>
-          </div>
-        ) : (
-            <div className="pt-4 border-t dark:border-gray-700 text-center text-gray-500">
-                <p>No active tasks found in any list.</p>
-            </div>
-        )}
-      </div>
+            ) : (
+                <div className="pt-4 border-t dark:border-gray-700 text-center text-gray-500">
+                    <p>No active tasks found in any list.</p>
+                </div>
+            )}
+        </div>
     </Modal>
   );
 };

@@ -43,6 +43,13 @@ const parseDate = (dateStr: string): string | null => {
 };
 
 export const parseTasksFromFile = (fileContent: string): Partial<Task>[] => {
+  if (!fileContent || typeof fileContent !== 'string') return [];
+
+  // Basic sanity check for massive strings that might have slipped through
+  if (fileContent.length > 5 * 1024 * 1024) {
+      throw new Error("File content too large to parse.");
+  }
+
   const lines = fileContent.trim().split(/\r\n|\n|\r/);
 
   if (lines.length === 0) return [];
@@ -55,12 +62,15 @@ export const parseTasksFromFile = (fileContent: string): Partial<Task>[] => {
   const isStructured = firstLine.includes('description');
   const hasComma = firstLine.includes(',');
 
+  // Enforce the application-wide 102 character limit
+  const MAX_DESC_LENGTH = 102;
+
   if (!isStructured) {
       // Treat as simple line-separated list
       return lines.map((line): Partial<Task> | null => {
           if (!line.trim()) return null;
           return {
-              description: line.trim(),
+              description: line.trim().substring(0, MAX_DESC_LENGTH),
               completed: false,
               importance: 0, // Default importance Low (0)
               dueDate: null,
@@ -109,9 +119,11 @@ export const parseTasksFromFile = (fileContent: string): Partial<Task>[] => {
 
     const task: Partial<Task> = {};
 
-    const description = values[descriptionIndex]?.trim().replace(/"/g, '');
-    if (!description) return null;
-    task.description = description;
+    const rawDescription = values[descriptionIndex]?.trim().replace(/"/g, '');
+    if (!rawDescription) return null;
+    
+    // STRICT TRUNCATION
+    task.description = rawDescription.substring(0, MAX_DESC_LENGTH);
 
     if (completedIndex > -1) {
       const completedValue = values[completedIndex]?.trim().toLowerCase();

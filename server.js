@@ -35,8 +35,9 @@ async function startServer() {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     });
 
-    app.listen(port, () => {
-      console.log(`Server listening on port ${port}`);
+    // CRITICAL FIX: Bind to 0.0.0.0 for Docker networking
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`Server listening on port ${port} (0.0.0.0)`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

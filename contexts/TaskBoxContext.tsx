@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import type { Task, TaskListWithUsers, Theme, User } from '../types';
 import { parseTasksFromFile } from '../utils/csvImporter';
 
-export type SpecialViewType = 'all' | 'importance' | 'pinned' | 'dependencies' | 'focused' | null;
+export type SpecialViewType = 'all' | 'importance' | 'pinned' | 'dependencies' | 'focused' | 'due_tasks' | null;
 
 interface TaskBoxContextType {
     // State
@@ -19,6 +19,8 @@ interface TaskBoxContextType {
     needsSetup: boolean;
     authLoaded: boolean;
     debugMode: boolean;
+    sidebarAccordionMode: boolean;
+    globalViewPersistence: boolean; // New Global Setting
 
     // Setters
     toggleTheme: () => void;
@@ -28,11 +30,14 @@ interface TaskBoxContextType {
     setUser: (user: User | null) => void;
     setToken: (token: string | null) => void;
     setError: (error: string | null) => void;
+    setSidebarAccordionMode: (enabled: boolean) => void;
+    setGlobalViewPersistence: (enabled: boolean) => void; // New Setter
 
     // Actions
     fetchData: () => Promise<void>;
     apiFetch: (url: string, options?: RequestInit) => Promise<Response>;
     handleLogout: () => void;
+    resetAllViewSettings: () => void; // New Action
     
     // API Wrappers
     addList: (title: string, parentId: number | null) => Promise<void>;
@@ -40,9 +45,12 @@ interface TaskBoxContextType {
     moveList: (listId: number, parentId: number | null) => Promise<void>;
     mergeList: (sourceId: number, targetId: number) => Promise<void>;
     renameList: (listId: number, newTitle: string) => Promise<void>;
+    transferListOwnership: (listId: number, newOwnerId: number) => Promise<void>; // Added
     addTask: (listId: number, description: string) => Promise<void>;
     removeTask: (taskId: number) => Promise<void>;
     updateTask: (task: Task) => Promise<void>;
+    reorderListTasks: (listId: number, tasks: {id: number, sortOrder: number}[]) => Promise<void>; // Added
+    reorderGlobalTasks: (tasks: {id: number, globalSortOrder: number}[]) => Promise<void>; // Added for global view
     processImport: (fileContent: string) => Promise<void>;
     copyTaskToList: (taskId: number, targetListId: number, move: boolean) => Promise<void>;
 }
@@ -64,6 +72,22 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
         } catch { return 'light'; }
     });
 
+    // Sidebar Accordion State
+    const [sidebarAccordionMode, setSidebarAccordionModeState] = useState<boolean>(() => {
+        try {
+            const item = window.localStorage.getItem('taskbox-accordion');
+            return item === 'true';
+        } catch { return false; }
+    });
+
+    // Global View Persistence State (Default: True)
+    const [globalViewPersistence, setGlobalViewPersistenceState] = useState<boolean>(() => {
+        try {
+            const item = window.localStorage.getItem('taskbox-global-persistence');
+            return item !== 'false'; // Default to true if missing
+        } catch { return true; }
+    });
+
     // Debug Mode
     const [debugMode, setDebugMode] = useState(false);
 
@@ -77,6 +101,30 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
         if (theme === 'orange') document.body.classList.add('theme-orange');
         else document.body.classList.remove('theme-orange');
     }, [theme]);
+
+    const setSidebarAccordionMode = useCallback((enabled: boolean) => {
+        setSidebarAccordionModeState(enabled);
+        window.localStorage.setItem('taskbox-accordion', String(enabled));
+    }, []);
+
+    const setGlobalViewPersistence = useCallback((enabled: boolean) => {
+        setGlobalViewPersistenceState(enabled);
+        window.localStorage.setItem('taskbox-global-persistence', String(enabled));
+    }, []);
+
+    const resetAllViewSettings = useCallback(() => {
+        // Iterate over localStorage and remove keys starting with 'taskbox-view-state-' or 'taskbox-persistence-override-'
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('taskbox-view-state-') || key.startsWith('taskbox-global-view-state') || key.startsWith('taskbox-persistence-override-'))) {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        // Force reload to apply defaults
+        window.location.reload();
+    }, []);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -122,12 +170,18 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
     // Custom setters to ensure mutual exclusivity between List View and Special View
     const setActiveListId = (id: number | null) => {
         setActiveListIdState(id);
-        if (id !== null) setSpecialViewState(null); // Clear special view if a list is selected
+        if (id !== null) {
+            setSpecialViewState(null); // Clear special view if a list is selected
+            if (user) localStorage.setItem(`taskbox-last-list-${user.id}`, String(id));
+        }
     };
 
     const setSpecialView = (view: SpecialViewType) => {
         setSpecialViewState(view);
-        if (view !== null) setActiveListIdState(null); // Clear active list if special view is selected
+        if (view !== null) {
+            setActiveListIdState(null); // Clear active list if special view is selected
+            if (user) localStorage.removeItem(`taskbox-last-list-${user.id}`); // Clear last list logic when in special view
+        }
     };
 
     // Refs to break dependency cycles
@@ -189,15 +243,19 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
             const data = await res.json();
             setLists(data);
             
-            // Only auto-select if no list is active AND no special view is active
             const currentActiveId = activeListIdRef.current;
             
-            // Note: We access state directly here via a ref check logic, but we can't easily access specialView state inside useCallback without dependency.
-            // However, standard behavior is: if user was on a list that disappeared, default to first list.
-            if (data.length > 0 && currentActiveId === null) {
-                 // We don't auto-select here to allow for "No selection" state or Special Views persistence
-                 // Logic handled in UI components usually
+            // Logic: Remember Last List
+            if (currentActiveId === null) {
+                 const storedLastList = localStorage.getItem(`taskbox-last-list-${user.id}`);
+                 if (storedLastList) {
+                     const id = parseInt(storedLastList);
+                     if (data.find((l: any) => l.id === id)) {
+                         setActiveListIdState(id);
+                     }
+                 }
             }
+            
             // If active list was deleted, reset
             if (currentActiveId !== null && !data.find((l: any) => l.id === currentActiveId)) {
                 setActiveListId(data.length > 0 ? data[0].id : null);
@@ -271,7 +329,24 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
                 method: 'PUT',
                 body: JSON.stringify({ title: newTitle })
             });
-            if (!response.ok) throw new Error('Failed to rename list');
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message);
+            }
+            fetchData();
+        } catch (e: any) { alert(e.message); }
+    };
+
+    const transferListOwnership = async (listId: number, newOwnerId: number) => {
+        try {
+            const response = await apiFetch(`/api/lists/${listId}/transfer`, {
+                method: 'POST',
+                body: JSON.stringify({ newOwnerId })
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message);
+            }
             fetchData();
         } catch (e: any) { alert(e.message); }
     };
@@ -312,6 +387,34 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
         } catch (err) { console.error("Failed to update task."); }
     };
 
+    const reorderListTasks = async (listId: number, tasks: {id: number, sortOrder: number}[]) => {
+        try {
+            const response = await apiFetch(`/api/lists/${listId}/tasks/reorder`, {
+                method: 'PUT',
+                body: JSON.stringify({ tasks })
+            });
+             if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message);
+            }
+            fetchData();
+        } catch (err: any) { console.error("Failed to reorder tasks.", err); }
+    };
+    
+    const reorderGlobalTasks = async (tasks: {id: number, globalSortOrder: number}[]) => {
+        try {
+            const response = await apiFetch(`/api/tasks/reorder-global`, {
+                method: 'PUT',
+                body: JSON.stringify({ tasks })
+            });
+             if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message);
+            }
+            fetchData();
+        } catch (err: any) { console.error("Failed to reorder global tasks.", err); }
+    };
+
     const processImport = async (fileContent: string) => {
         if (!activeList) return alert("Select a list.");
         try {
@@ -348,10 +451,12 @@ export const TaskBoxProvider: React.FC<{ children: ReactNode }> = ({ children })
             lists, activeListId, activeList, setActiveListId,
             specialView, setSpecialView,
             searchQuery, setSearchQuery,
-            loading, error, setError, needsSetup, authLoaded, debugMode,
+            loading, error, setError, needsSetup, authLoaded, debugMode, sidebarAccordionMode, 
+            globalViewPersistence, setGlobalViewPersistence, resetAllViewSettings,
+            setSidebarAccordionMode,
             fetchData, apiFetch, handleLogout,
-            addList, removeList, moveList, mergeList, renameList,
-            addTask, removeTask, updateTask, processImport, copyTaskToList
+            addList, removeList, moveList, mergeList, renameList, transferListOwnership,
+            addTask, removeTask, updateTask, reorderListTasks, reorderGlobalTasks, processImport, copyTaskToList
         }}>
             {children}
         </TaskBoxContext.Provider>

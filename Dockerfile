@@ -26,12 +26,13 @@ WORKDIR /app
 
 # Add Metadata Labels
 LABEL maintainer="Level 1 Apps"
-LABEL version="3.9.15"
+LABEL version="3.10.6"
 LABEL description="TaskBox - Standalone Task Manager"
 LABEL com.l1apps.www="Level 1 Apps"
 
 # For native modules like bcrypt, Alpine needs some build tools.
-RUN apk add --no-cache python3 make g++
+# Added sqlite3 for easier debugging of database issues via 'docker exec'.
+RUN apk add --no-cache python3 make g++ sqlite
 
 # Copy package files again and install ONLY production dependencies.
 # This keeps the final image size small and more secure.
@@ -60,8 +61,9 @@ EXPOSE 3000
 ENV NODE_ENV=production
 
 # Healthcheck to verify the application is responding
+# Use 127.0.0.1 explicitly to avoid localhost resolution issues in some environments
 HEALTHCHECK --interval=30s --timeout=3s \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/users/any-exist || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/users/any-exist || exit 1
 
 # Command to run the application.
 CMD ["node", "server.js"]

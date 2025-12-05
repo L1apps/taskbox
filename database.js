@@ -6,10 +6,35 @@ import path from 'path';
 // This function is the single entry point to get a fully initialized DB connection.
 async function initializeDatabase() {
   const dbPath = process.env.NODE_ENV === 'production' ? '/app/data' : './data';
+  
+  // Ensure directory exists
   if (!fs.existsSync(dbPath)) {
+    console.log(`[DB] Creating database directory: ${dbPath}`);
     fs.mkdirSync(dbPath, { recursive: true });
   }
+  
   const dbFile = path.join(dbPath, 'taskbox.db');
+
+  // --- DIAGNOSTICS ---
+  console.log(`[DB] Initializing database at: ${dbFile}`);
+  try {
+      if (fs.existsSync(dbFile)) {
+          const stats = fs.statSync(dbFile);
+          console.log(`[DB] Found existing database file. Size: ${(stats.size / 1024).toFixed(2)} KB`);
+      } else {
+          console.log(`[DB] Database file NOT found at ${dbFile}. A new empty database will be created.`);
+          // List contents of directory to help debug volume mounting issues
+          try {
+              const files = fs.readdirSync(dbPath);
+              console.log(`[DB] Current files in ${dbPath}:`, files.length > 0 ? files : '(empty)');
+          } catch (e) {
+              console.log(`[DB] Could not list directory ${dbPath}: ${e.message}`);
+          }
+      }
+  } catch (err) {
+      console.error("[DB] Error checking file status:", err);
+  }
+  // -------------------
 
   const db = knex({
     client: 'sqlite3',
@@ -152,6 +177,8 @@ async function initializeDatabase() {
           table.integer('dependsOn').unsigned().references('id').inTable('tasks').onDelete('SET NULL');
           table.boolean('pinned').defaultTo(false);
           table.boolean('focused').defaultTo(false);
+          table.integer('sort_order').defaultTo(0);
+          table.integer('global_sort_order').defaultTo(0);
         });
     } else {
         const hasDependsOn = await db.schema.hasColumn('tasks', 'dependsOn');
@@ -170,16 +197,31 @@ async function initializeDatabase() {
         if (!hasCreatedAt) {
             await db.schema.alterTable('tasks', t => t.timestamp('created_at').defaultTo(db.fn.now()));
         }
+        const hasSortOrder = await db.schema.hasColumn('tasks', 'sort_order');
+        if (!hasSortOrder) {
+            await db.schema.alterTable('tasks', t => t.integer('sort_order').defaultTo(0));
+            // Initialize sort order for existing tasks to preserve stability
+            const tasks = await db('tasks').select('id');
+            for (const t of tasks) {
+                await db('tasks').where('id', t.id).update({ sort_order: t.id });
+            }
+        }
+        const hasGlobalSortOrder = await db.schema.hasColumn('tasks', 'global_sort_order');
+        if (!hasGlobalSortOrder) {
+            await db.schema.alterTable('tasks', t => t.integer('global_sort_order').defaultTo(0));
+        }
+        // Ensure importance is within bounds
         await db('tasks').where('importance', '>', 2).update({ importance: 2 });
     }
     
-    console.log('Database schema is up to date.');
-    await db.raw('SELECT 1');
-    console.log('Database connection verified and ready.');
+    // Quick sanity check on Users
+    const userCount = await db('users').count('id as count').first();
+    console.log(`[DB] Database ready. Users registered: ${userCount.count}`);
+
     return db;
 
   } catch (error) {
-    console.error('Error setting up database:', error);
+    console.error('[DB] Critical Error setting up database:', error);
     throw error;
   }
 }
@@ -196,10 +238,10 @@ async function seedDatabase(db, userId) {
         });
 
         const tasks = [
-            { description: 'Milk', completed: false, importance: 1, list_id: listId },
-            { description: 'Eggs', completed: false, importance: 1, list_id: listId },
-            { description: 'Bread', completed: false, importance: 0, list_id: listId },
-            { description: 'Meat', completed: false, importance: 2, list_id: listId }
+            { description: 'Milk', completed: false, importance: 1, list_id: listId, sort_order: 1 },
+            { description: 'Eggs', completed: false, importance: 1, list_id: listId, sort_order: 2 },
+            { description: 'Bread', completed: false, importance: 0, list_id: listId, sort_order: 3 },
+            { description: 'Meat', completed: false, importance: 2, list_id: listId, sort_order: 4 }
         ];
 
         await db('tasks').insert(tasks);

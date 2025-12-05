@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { Theme, TaskListWithUsers } from '../types';
@@ -88,7 +89,9 @@ const AddListModal: React.FC<AddListModalProps> = ({ onClose, onAddList, theme, 
             className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 ${themeRingColor} sm:text-sm dark:bg-gray-700 dark:border-gray-600 ${inputTextColor}`}
             required
             autoFocus
+            maxLength={20}
           />
+          <div className="text-right text-xs text-gray-400 mt-1">{title.length}/20</div>
         </div>
 
         {/* Location Selector */}

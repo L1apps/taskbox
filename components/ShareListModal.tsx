@@ -13,7 +13,7 @@ interface ShareListModalProps {
 }
 
 const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, onClose, theme, apiFetch, onListUpdated }) => {
-  const { lists, user } = useTaskBox();
+  const { lists, user, transferListOwnership } = useTaskBox();
   
   // Resolve the fresh list from context to ensure UI updates immediately after actions
   const list = useMemo(() => lists.find(l => l.id === initialListProp.id), [lists, initialListProp.id]);
@@ -22,7 +22,7 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [permission, setPermission] = useState<string>('FULL');
   const [error, setError] = useState('');
-
+  
   const fetchAllUsers = useCallback(async () => {
     try {
       const response = await apiFetch('/api/users');
@@ -41,6 +41,7 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
   if (!list) return null; // Should not happen
 
   const isOwner = user?.id === list.ownerId;
+  const isAdmin = user?.role === 'ADMIN';
 
   const handleShare = async () => {
       if (!selectedUserId) return;
@@ -75,6 +76,27 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
           }
       } catch (e) {
           setError('Could not remove user.');
+      }
+  };
+
+  const handleTransferOwnership = async (newOwnerId: number, username: string) => {
+      if (window.confirm(`Are you sure you want to make "${username}" the owner of this list? You will lose ownership but retain FULL access.`)) {
+          try {
+              await transferListOwnership(list.id, newOwnerId);
+          } catch (e) {
+              setError("Failed to transfer ownership");
+          }
+      }
+  };
+  
+  const handleTakeOwnership = async () => {
+      if (!user) return;
+      if (window.confirm("Admin Override: Take full ownership of this list? The previous owner will be downgraded to a 'Full Access' shared user.")) {
+          try {
+              await transferListOwnership(list.id, user.id);
+          } catch (e) {
+              setError("Failed to take ownership");
+          }
       }
   };
   
@@ -138,6 +160,14 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
                 <p className="text-sm text-blue-700 dark:text-blue-200">
                     You are a shared member of this list with <b>{getPermissionLabel(list.currentUserPermission)}</b> permissions.
                 </p>
+                {isAdmin && (
+                    <button 
+                        onClick={handleTakeOwnership}
+                        className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 font-bold"
+                    >
+                        ADMIN: Take Ownership
+                    </button>
+                )}
             </div>
         )}
 
@@ -154,12 +184,19 @@ const ShareListModal: React.FC<ShareListModalProps> = ({ list: initialListProp, 
                                 <span className="text-xs text-gray-500 uppercase">{getPermissionLabel(sharedUser.permission)}</span>
                             </div>
                             
-                            {/* Owner can remove anyone. Shared user can only remove themselves. */}
-                            {(isOwner || sharedUser.id === user?.id) && (
-                                <button onClick={() => handleRemoveShare(sharedUser.id)} className="text-xs text-red-500 hover:underline">
-                                    {sharedUser.id === user?.id ? 'Leave List' : 'Remove'}
-                                </button>
-                            )}
+                            <div className="flex space-x-2">
+                                {isOwner && (
+                                    <button onClick={() => handleTransferOwnership(sharedUser.id, sharedUser.username)} className="text-xs text-blue-500 hover:underline">
+                                        Make Owner
+                                    </button>
+                                )}
+                                {/* Owner can remove anyone. Shared user can only remove themselves. */}
+                                {(isOwner || sharedUser.id === user?.id) && (
+                                    <button onClick={() => handleRemoveShare(sharedUser.id)} className="text-xs text-red-500 hover:underline">
+                                        {sharedUser.id === user?.id ? 'Leave List' : 'Remove'}
+                                    </button>
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>

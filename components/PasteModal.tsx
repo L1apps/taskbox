@@ -31,21 +31,31 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
           return;
       }
       
-      // Strict Duplicate Checking
+      // Strict Duplicate Checking & Limit Checking
       try {
           const importedTasks = parseTasksFromFile(pastedText);
+          
+          // Limit to 20 tasks
+          let tasksToImport = importedTasks;
+          if (tasksToImport.length > 20) {
+              if (!window.confirm(`You are pasting ${tasksToImport.length} tasks, but the limit for paste is 20. The first 20 will be imported and the rest discarded. Continue?`)) {
+                  return;
+              }
+              tasksToImport = tasksToImport.slice(0, 20);
+          }
+
           const existingDescriptions = new Set(tasks.map(t => t.description.toLowerCase().trim()));
           
-          const uniqueTasks = importedTasks.filter(t => {
+          const uniqueTasks = tasksToImport.filter(t => {
               if (!t.description) return false;
               return !existingDescriptions.has(t.description.toLowerCase().trim());
           });
           
-          const duplicatesCount = importedTasks.length - uniqueTasks.length;
+          const duplicatesCount = tasksToImport.length - uniqueTasks.length;
           
           if (duplicatesCount > 0) {
               if (uniqueTasks.length === 0) {
-                  setError(`All ${duplicatesCount} tasks are duplicates of existing tasks. Nothing to import.`);
+                  setError(`All tasks are duplicates of existing tasks. Nothing to import.`);
                   return;
               }
               if (!window.confirm(`${duplicatesCount} duplicate task(s) found and will be skipped. Import remaining ${uniqueTasks.length} tasks?`)) {
@@ -64,7 +74,19 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
               const filteredContent = [header, ...rows].join('\n');
               onImport(filteredContent);
           } else {
-              onImport(pastedText);
+              // If we sliced the array, we must regenerate the CSV content to only include the sliced items
+              if (tasksToImport.length < importedTasks.length) {
+                   const header = "Description,Completed,Due Date,Importance";
+                   const rows = tasksToImport.map(t => {
+                      const status = t.completed ? 'true' : 'false';
+                      const due = t.dueDate || '';
+                      const imp = t.importance || 0;
+                      return `"${t.description}",${status},${due},${imp}`;
+                   });
+                   onImport([header, ...rows].join('\n'));
+              } else {
+                   onImport(pastedText);
+              }
           }
           
           onClose();
@@ -135,16 +157,24 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
                             {copied ? "Copied!" : "Copy to Clipboard"}
                         </button>
                     </div>
-                    <span className={`text-xs ${pastedText.length > 50000 ? 'text-red-500' : 'text-gray-400'}`}>
-                        {pastedText.length} / 50000 chars
-                    </span>
+                    <div className="flex flex-col items-end">
+                        <span className={`text-xs ${pastedText.length > 50000 ? 'text-red-500' : 'text-gray-400'}`}>
+                            {pastedText.length} / 50000 chars
+                        </span>
+                    </div>
                 </div>
                 {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
-                {isReadOnlyView && !error && (
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
-                        Note: Import is disabled in Global Views. Please select a specific list to paste tasks.
+                
+                <div className="mt-2 space-y-1">
+                    {isReadOnlyView && (
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                            Note: Import is disabled in Global Views. Please select a specific list to paste tasks.
+                        </p>
+                    )}
+                    <p className="text-xs text-yellow-600 dark:text-yellow-500">
+                        Max 20 tasks per paste. Long text truncated to 102 chars.
                     </p>
-                )}
+                </div>
             </div>
             
             <div className="flex justify-end pt-2 space-x-2">

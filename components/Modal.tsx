@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { Theme } from '../types';
 
@@ -6,9 +7,10 @@ interface ModalProps {
   onClose: () => void;
   children: React.ReactNode;
   theme: Theme;
+  maxWidth?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ title, onClose, children, theme }) => {
+const Modal: React.FC<ModalProps> = ({ title, onClose, children, theme, maxWidth = 'max-w-md' }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ const Modal: React.FC<ModalProps> = ({ title, onClose, children, theme }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div ref={modalRef} className={`${theme === 'orange' ? 'bg-gray-900' : 'bg-white dark:bg-gray-800'} rounded-lg shadow-xl w-full max-w-md m-4`}>
+      <div ref={modalRef} className={`${theme === 'orange' ? 'bg-gray-900' : 'bg-white dark:bg-gray-800'} rounded-lg shadow-xl w-full ${maxWidth} m-4`}>
         <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import { initializeDatabase } from './database.js';
 import { createApiRouter } from './api.js'; // Import the router factory
 
+console.log("Starting TaskBox Server..."); // Immediate log to confirm container is running
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -19,7 +21,9 @@ app.use(express.json({ limit: '100mb' }));
 
 async function startServer() {
   try {
+    console.log("Initializing database connection...");
     const db = await initializeDatabase();
+    console.log("Database initialized successfully.");
 
     // Create and mount the API router
     const apiRouter = createApiRouter(db);

@@ -1,3 +1,4 @@
+
 # Node.js dependencies
 node_modules
 
@@ -24,4 +25,8 @@ Thumbs.db
 
 # Database and Data (Keep local data out of the container image)
 taskbox.db
+taskbox.db-journal
+taskbox.db-shm
+taskbox.db-wal
 data/
+*.bak

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import type { Task, Theme } from '../types';
 import Tooltip from './Tooltip';
@@ -197,7 +196,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
       );
   }, [allTasksInList, task.id, amIAParent]);
 
-  const CheckboxWrapper = ({ children }: { children: React.ReactNode }) => {
+  const CheckboxWrapper = ({ children }: { children?: React.ReactNode }) => {
     if (readOnly) return <div className="opacity-50 cursor-not-allowed">{children}</div>;
     const tooltipText = hasIncompleteChildren 
         ? "Cannot complete: Sub-tasks are still active" 

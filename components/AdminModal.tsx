@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { Theme, LogEntry } from '../types';
+import { useTaskBox } from '../contexts/TaskBoxContext';
+import Tooltip from './Tooltip';
 
 interface AdminModalProps {
   onClose: () => void;
@@ -11,6 +13,7 @@ interface AdminModalProps {
 }
 
 const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpdate }) => {
+  const { user: currentUser } = useTaskBox(); // Get current admin info
   const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'db'>('users');
   const [users, setUsers] = useState<any[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -18,6 +21,10 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpd
   const [loading, setLoading] = useState(false);
   const [newUser, setNewUser] = useState('');
   const [newPass, setNewPass] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  
+  // Track transfer checkbox state per user ID
+  const [transferMap, setTransferMap] = useState<Record<number, boolean>>({});
   
   // DB Restore state
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
@@ -58,10 +65,47 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpd
       finally { setLoading(false); }
   };
 
-  const handleDeleteUser = async (id: number) => {
-      if (!window.confirm("Are you sure? This deletes ALL their lists and tasks.")) return;
-      await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
-      fetchUsers();
+  const toggleTransfer = (userId: number) => {
+      setTransferMap(prev => ({ ...prev, [userId]: !prev[userId] }));
+  };
+
+  const handleDeleteUser = async (targetUser: any, shouldTransfer: boolean) => {
+      const { id, username, listCount } = targetUser;
+      
+      // Explicit Confirmation Logic
+      if (listCount > 0) {
+          if (shouldTransfer) {
+              if (!window.confirm(`Are you sure you want to delete user "${username}"?\n\nTheir ${listCount} lists (and all contained tasks) will be TRANSFERRED to your admin account.`)) {
+                  return;
+              }
+          } else {
+              if (!window.confirm(`WARNING: User "${username}" owns ${listCount} lists.\n\nYou have NOT selected to transfer them.\n\nDeleting this user will PERMANENTLY DESTROY all their lists and tasks.\n\nAre you sure you want to proceed?`)) {
+                  return;
+              }
+          }
+      } else {
+          // Standard delete for empty users
+          if (!window.confirm(`Delete user "${username}"?`)) return;
+      }
+
+      setLoading(true);
+      try {
+          const url = shouldTransfer && currentUser 
+            ? `/api/users/${id}?transfer_to=${currentUser.id}` 
+            : `/api/users/${id}`;
+
+          const res = await apiFetch(url, { method: 'DELETE' });
+          if (res.ok) {
+              setMessage(shouldTransfer ? `User deleted. Lists transferred to you.` : `User deleted.`);
+              fetchUsers();
+          } else {
+              setMessage("Delete failed.");
+          }
+      } catch (e) {
+          setMessage("Error during deletion.");
+      } finally {
+          setLoading(false);
+      }
   };
 
   const handleResetPassword = async (id: number) => {
@@ -81,6 +125,32 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpd
       fetchLogs();
   };
 
+  const handleExportLogs = () => {
+      if (logs.length === 0) {
+          setMessage("No logs to export.");
+          return;
+      }
+      
+      const headers = ['ID', 'Timestamp', 'Level', 'Message'];
+      const csvContent = [
+          headers.join(','),
+          ...logs.map(log => {
+              // Simple CSV escaping: wrap in quotes, escape existing quotes
+              const msg = log.message ? log.message.replace(/"/g, '""') : '';
+              return `${log.id},"${new Date(log.timestamp).toISOString()}",${log.level},"${msg}"`;
+          })
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `taskbox_logs_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   const performAction = async (action: string) => {
       if (!window.confirm(`Perform ${action}? This might be destructive.`)) return;
       setLoading(true);
@@ -97,8 +167,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpd
   };
 
   const handleBackup = () => {
-      // Direct download via blob to handle auth headers if needed, or simple link if cookie/token allows.
-      // Since apiFetch handles the token header, we use that.
       apiFetch('/api/admin/backup')
         .then(response => response.blob())
         .then(blob => {
@@ -172,13 +240,46 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpd
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {users.map(u => (
                                 <tr key={u.id}>
-                                    <td className="px-4 py-2">{u.id}</td>
-                                    <td className="px-4 py-2 font-medium">{u.username}</td>
-                                    <td className="px-4 py-2">{u.role}</td>
-                                    <td className="px-4 py-2">{u.listCount} / {u.taskCount}</td>
-                                    <td className="px-4 py-2 flex space-x-2">
-                                        <button onClick={() => handleResetPassword(u.id)} className="text-blue-500 hover:underline">Reset PW</button>
-                                        {u.role !== 'ADMIN' && <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:underline">Delete</button>}
+                                    <td className="px-4 py-2 align-middle">{u.id}</td>
+                                    <td className="px-4 py-2 align-middle font-medium">{u.username}</td>
+                                    <td className="px-4 py-2 align-middle">{u.role}</td>
+                                    <td className="px-4 py-2 align-middle">{u.listCount} / {u.taskCount}</td>
+                                    <td className="px-4 py-2 align-middle">
+                                        <div className="flex items-center space-x-3">
+                                            <Tooltip text="Reset Password">
+                                                <button onClick={() => handleResetPassword(u.id)} className="text-blue-500 hover:text-blue-700 p-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                                    </svg>
+                                                </button>
+                                            </Tooltip>
+                                            
+                                            {u.role !== 'ADMIN' && (
+                                                <div className="flex items-center space-x-2">
+                                                    <Tooltip text="Delete User">
+                                                        <button 
+                                                            onClick={() => handleDeleteUser(u, !!transferMap[u.id])} 
+                                                            className="text-red-500 hover:text-red-700 p-1"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    </Tooltip>
+                                                    {u.listCount > 0 && (
+                                                        <label className="flex items-center cursor-pointer select-none" title="Transfer lists to Admin upon deletion">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={!!transferMap[u.id]} 
+                                                                onChange={() => toggleTransfer(u.id)}
+                                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                                                            />
+                                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-1 font-medium">Transfer Lists</span>
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -188,9 +289,34 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpd
 
                 <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
                     <h4 className="font-bold mb-2">Create User</h4>
-                    <form onSubmit={handleCreateUser} className="flex gap-2">
+                    <form onSubmit={handleCreateUser} className="flex gap-2 items-center">
                         <input type="text" placeholder="Username" value={newUser} onChange={e => setNewUser(e.target.value)} className="border p-2 rounded text-sm w-1/3 dark:bg-gray-800 dark:border-gray-600" required />
-                        <input type="password" placeholder="Password" value={newPass} onChange={e => setNewPass(e.target.value)} className="border p-2 rounded text-sm w-1/3 dark:bg-gray-800 dark:border-gray-600" required />
+                        <div className="relative w-1/3">
+                            <input 
+                                type={showPassword ? "text" : "password"} 
+                                placeholder="Password" 
+                                value={newPass} 
+                                onChange={e => setNewPass(e.target.value)} 
+                                className="border p-2 rounded text-sm w-full dark:bg-gray-800 dark:border-gray-600 pr-8" 
+                                required 
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            >
+                                {showPassword ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
                         <button type="submit" disabled={loading} className={`${buttonBase} ${isOrange ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-500 hover:bg-blue-600'}`}>Create</button>
                     </form>
                 </div>
@@ -201,14 +327,34 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, theme, apiFetch, onUpd
             <div className="space-y-2">
                 <div className="flex justify-between items-center">
                     <h3 className="font-bold">Security & Activity Log</h3>
-                    <button onClick={handleClearLogs} className="text-xs text-red-500 hover:underline">Clear Logs</button>
+                    <div className="flex items-center space-x-3">
+                        <Tooltip text="export log(s) to csv file" debugLabel="Export Logs">
+                            <button onClick={handleExportLogs} className="text-green-600 hover:text-green-800 dark:text-green-500 dark:hover:text-green-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                        </Tooltip>
+                        <Tooltip text="clear logs" debugLabel="Clear Logs">
+                            <button onClick={handleClearLogs} className="text-red-500 hover:text-red-700">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                        </Tooltip>
+                    </div>
                 </div>
-                <div className="h-64 overflow-y-auto border rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-700 p-2 font-mono text-xs">
+                {/* 
+                    Log Container: 
+                    If Orange theme, we enforce a dark background (bg-black) explicitly because 'dark' class 
+                    is often not applied to the root in orange mode, but we need high contrast for readability.
+                */}
+                <div className={`h-64 overflow-y-auto border rounded p-2 font-mono text-xs ${isOrange ? 'bg-black border-gray-700 text-gray-300' : 'bg-gray-50 dark:bg-gray-900 dark:border-gray-700'}`}>
                     {logs.map(log => (
-                        <div key={log.id} className="mb-1 border-b border-gray-200 dark:border-gray-800 last:border-0 pb-1">
+                        <div key={log.id} className={`mb-1 border-b last:border-0 pb-1 ${isOrange ? 'border-gray-800' : 'border-gray-200 dark:border-gray-800'}`}>
                             <span className="text-gray-500">[{new Date(log.timestamp).toLocaleString()}]</span>
                             <span className={`ml-2 font-bold ${log.level === 'WARN' ? 'text-orange-500' : log.level === 'ERROR' ? 'text-red-500' : 'text-green-600'}`}>{log.level}</span>
-                            <span className="ml-2 dark:text-gray-300">{log.message}</span>
+                            <span className={`ml-2 ${isOrange ? 'text-gray-300' : 'dark:text-gray-300'}`}>{log.message}</span>
                         </div>
                     ))}
                     {logs.length === 0 && <div className="text-gray-400 italic">No logs found.</div>}

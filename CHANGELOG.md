@@ -3,6 +3,29 @@
 
 All notable changes to the **TaskBox** project will be documented in this file.
 
+## [3.11.5] - 2025-11-10
+### Added
+- **Admin Panel:** Added functionality to **Export Activity Logs** to CSV.
+- **Admin Panel:** Added an explicit "Transfer Lists" checkbox to the User Deletion workflow, allowing Admins to easily preserve data before deleting a user.
+- **Security:** Added "Show Password" (Eye icon) toggle to Login, Setup, Admin Create User, and User Settings forms.
+- **UX:** Added explicit confirmation dialog after successfully changing password in User Settings to remind users the change takes effect on next login.
+
+### Changed
+- **Admin UI:** Replaced text buttons with intuitive icons (Trash, Key, Download) in the Admin Panel for a cleaner interface.
+- **Admin UI:** Improved Activity Log readability in the Orange theme by enforcing a dark background.
+- **Limits:** Increased User Capacity from 5 to 10 users.
+- **Logging:** Activity Logs now display the `Username` alongside the `User ID` for deletions and password resets.
+- **UI:** Updated the "Pinned Tasks" global view icon to match the standard pin icon used in task items.
+
+### Fixed
+- **Data Mapping:** Fixed a bug where the "Date Created" was missing from tasks due to a database-to-frontend mapping mismatch (`created_at` vs `createdAt`).
+- **Clipboard:** Fixed "Copy to Clipboard" functionality in the Paste/Import modal. It now uses a fallback method compatible with non-secure (HTTP) contexts.
+
+## [3.11.4] - 2025-11-08
+### Fixed
+- **Admin Registration:** Fixed a regression where Admins were unable to create new users due to an incorrect authentication check in the registration endpoint. 
+- **Type Safety:** Fixed a minor TypeScript error in TaskItem component.
+
 ## [3.11.3] - 2025-11-08
 ### Added
 - **Admin Tool:** Added "Reset Task Relationships" maintenance tool. This feature fixes any task hierarchy corruption (like grandchildren or cross-linking) by resetting all tasks to a flat structure (no parents, no children).

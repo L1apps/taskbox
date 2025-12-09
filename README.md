@@ -1,7 +1,7 @@
 
 # TaskBox - Your Personal Task Manager
 
-**Version:** 3.11.3
+**Version:** 3.11.5
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/l1apps/taskbox?style=for-the-badge)](https://hub.docker.com/r/l1apps/taskbox)
 [![GitHub Repo stars](https://img.shields.io/github/stars/l1apps/taskbox?style=for-the-badge)](https://github.com/l1apps/taskbox)
@@ -97,7 +97,7 @@ docker run -d \
 *   **Multi-User Support:** Secure user registration and login system.
 *   **Shared Permissions:** Share lists with specific access levels: View Only, Modify, or Full Access.
 *   **Ownership Transfer:** Transfer full ownership of lists to other users. Admins can force transfer.
-*   **Admin Panel:** User management, security logs, and database maintenance.
+*   **Admin Panel:** User management, security logs (with CSV export), and database maintenance.
 *   **Database Backup/Restore:** Download full backups or restore DB via file upload (Admin only).
 *   **Import/Export:** Support for CSV and Text files. (Import disabled in Global Views).
 *   **Statistics Page:** View completion rates and overdue tasks.
@@ -132,6 +132,12 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 
 See [CHANGELOG.md](CHANGELOG.md) for full details.
 
+*   **v3.11.5:** 
+    *   **Admin Log Export:** Export security and activity logs to CSV.
+    *   **Transfer Lists:** Admins can now transfer a user's lists to themselves when deleting that user to prevent data loss.
+    *   **Fix:** Resolved issue where Task Created Date was not displaying.
+    *   **User Limit:** Increased to 10 users.
+*   **v3.11.4:** Fixed Admin registration permission issue.
 *   **v3.11.3:** Added "Reset Task Relationships" repair tool to Admin panel.
 *   **v3.11.2:** Refined Task Relationship UI/Sorting.
 *   **v3.11.1:** Refined Parent/Child task logic, tooltips, and family context in Global Views.

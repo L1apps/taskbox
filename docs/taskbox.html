@@ -110,8 +110,8 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 </ul>
 <h3>Admin Panel</h3>
 <ul>
- 	<li><strong>User Management:</strong> Add/delete/reset users.</li>
- 	<li><strong>Activity Log:</strong> Security log.</li>
+ 	<li><strong>User Management:</strong> Add/delete/reset users. Now supports <strong>Transfer Lists</strong> to Admin when deleting a user to prevent data loss.</li>
+ 	<li><strong>Activity Log:</strong> Security log with <strong>CSV Export</strong> (Download Icon).</li>
  	<li><strong>Database Management:</strong>
 <ul>
  	<li>Export full database</li>
@@ -136,7 +136,7 @@ TaskBox uses a strict <strong>3-level hierarchy</strong> to keep organization cl
 </ul>
 <h3>Technical Limitations</h3>
 <ul>
-    <li><strong>User Limit:</strong> Max 5 Users.</li>
+    <li><strong>User Limit:</strong> Max 10 Users.</li>
     <li><strong>List Limits (Per User):</strong> 20 Root Lists, 10 Nested Lists per container, 20 Chars per Title.</li>
     <li><strong>Task Limits (Per User):</strong> 50 Tasks per list, 5,000 Tasks total, 102 Chars per Task Description.</li>
  	<li><strong>Max Depth:</strong> 3 Levels (Master → Sublist → Nested Sublist).</li>
@@ -219,6 +219,18 @@ docker exec -it taskbox node reset_admin.js <admin_username> <new_password>
 <h2>Version History</h2>
 [expand title="<strong><em>Click to view full TaskBox changelog</em></strong>"]
 <ul>
+    <li><strong>3.11.5 – 2025-11-10</strong>
+<ul>
+    <li>Admin Panel Improvements: Log Export, Transfer Lists on user delete.</li>
+    <li>Fixed issue where "Date Created" was not displaying on tasks.</li>
+    <li>Security updates and User limit increased to 10.</li>
+</ul>
+</li>
+    <li><strong>3.11.4 – 2025-11-08</strong>
+<ul>
+    <li>Fixed Admin Registration permissions.</li>
+</ul>
+</li>
     <li><strong>3.11.3 – 2025-11-08</strong>
 <ul>
     <li>Added "Reset Task Relationships" maintenance tool to flatten corrupt task hierarchies.</li>

@@ -122,12 +122,34 @@ const PasteModal: React.FC<PasteModalProps> = ({ onClose, onImport, tasks = [], 
       setError('');
   };
 
-  const handleCopyToClipboard = () => {
+  const handleCopyToClipboard = async () => {
       if(!pastedText) return;
-      navigator.clipboard.writeText(pastedText).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-      });
+      try {
+          // Attempt modern API first
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(pastedText);
+          } else {
+              throw new Error("Clipboard API unavailable");
+          }
+      } catch (err) {
+          // Fallback for non-secure contexts (HTTP)
+          try {
+              const textArea = document.createElement("textarea");
+              textArea.value = pastedText;
+              textArea.style.position = "fixed";
+              textArea.style.opacity = "0";
+              document.body.appendChild(textArea);
+              textArea.focus();
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+          } catch (fallbackErr) {
+              setError("Failed to copy. Please manually select and copy the text.");
+              return;
+          }
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
   };
 
   return (
